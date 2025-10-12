@@ -33,7 +33,7 @@ export default function SignupScreen() {
     setLoading(true);
     try {
       await signup(name, email, password, university);
-      router.replace('/(tabs)/(home)' as any);
+      router.replace('/onboarding' as any);
     } catch (error) {
       console.error('Signup error:', error);
     } finally {
@@ -54,7 +54,7 @@ export default function SignupScreen() {
           colors={[Colors.primary, Colors.secondary]}
           style={[styles.header, { paddingTop: insets.top + 80 }]}
         >
-          <Text style={styles.logo}>Collegium</Text>
+          <Text style={styles.logo}>UniConnect</Text>
           <Text style={styles.tagline}>Join your university community</Text>
         </LinearGradient>
 

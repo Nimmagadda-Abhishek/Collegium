@@ -8,6 +8,7 @@ export interface User {
   major: string;
   year: string;
   githubUsername?: string;
+  linkedinUrl?: string;
   followers: number;
   following: number;
 }
