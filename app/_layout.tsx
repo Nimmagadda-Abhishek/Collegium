@@ -17,6 +17,9 @@ function RootLayoutNav() {
       <Stack.Screen name="signup" options={{ headerShown: false }} />
       <Stack.Screen name="create-project" options={{ presentation: 'modal' }} />
       <Stack.Screen name="project/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="event/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="post/[id]" options={{headerShown:false}}/>
+      <Stack.Screen name="settings" options={{ headerShown: false }} />
     </Stack>
   );
 }

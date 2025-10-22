@@ -12,6 +12,7 @@ interface AuthContextType {
   loginWithGithub: () => Promise<void>;
   signup: (name: string, email: string, password: string, university: string) => Promise<void>;
   logout: () => Promise<void>;
+  updateUser: (updatedUser: User) => Promise<void>; 
 }
 
 export const [AuthProvider, useAuth] = createContextHook<AuthContextType>(() => {
@@ -77,6 +78,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextType>(() => 
         name,
         email,
         university,
+        
       };
       await AsyncStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
@@ -98,6 +100,15 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextType>(() => 
     }
   }, []);
 
+  const updateUser = useCallback(async (updatedUser: User) => {
+    try {
+      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+    } catch (error) {
+      console.error('Failed to update user:', error);
+    }
+  }, []);
+
   return useMemo(() => ({
     user,
     isAuthenticated: !!user,
@@ -106,5 +117,6 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextType>(() => 
     loginWithGithub,
     signup,
     logout,
+    updateUser,
   }), [user, isLoading, login, loginWithGithub, signup, logout]);
 });
