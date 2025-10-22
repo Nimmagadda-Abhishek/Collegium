@@ -1,5 +1,5 @@
 import { Tabs, Redirect } from 'expo-router';
-import { Home, Calendar, FolderGit2, MessageCircle, User } from 'lucide-react-native';
+import { Home, Calendar, FolderGit2, MessageCircle, User, Settings } from 'lucide-react-native';
 import React from 'react';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
@@ -108,6 +108,24 @@ export default function TabLayout() {
           headerTintColor: Colors.white,
         }}
       />
+      {/* <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          tabBarIcon: ({ color }) => <Settings size={24} color={color} />,
+          headerShown: true,
+          headerTitle: 'Settings',
+          headerStyle: {
+            backgroundColor: Colors.primary, // same as Profile header
+          },
+          headerTitleStyle: {
+            fontSize: 20,
+            fontWeight: '700' as const,
+            color: Colors.white,
+          },
+          headerTintColor: Colors.white, // back button color
+        }}
+      /> */}
     </Tabs>
   );
 }

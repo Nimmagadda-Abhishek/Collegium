@@ -1,4 +1,5 @@
-import React, { useState,useEffect } from 'react';
+// posts.tsx - Responsive with smooth animations
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,17 +9,51 @@ import {
   TouchableOpacity,
   Dimensions,
   FlatList,
+  Animated,
+  Platform,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { Heart, MessageCircle, Share2, Bookmark, Plus } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { posts } from '@/mocks/data';
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function PostsScreen() {
   const router = useRouter();
   const [postsData, setPostsData] = useState(posts);
+  const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
+  const [currentImageIndex, setCurrentImageIndex] = useState<{ [key: string]: number }>({});
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setScreenWidth(window.width);
+    });
+    return () => subscription?.remove();
+  }, []);
+
+  const getResponsiveMargin = () => {
+    if (screenWidth < 768) return 0;
+    if (screenWidth < 1024) return 100;
+    return Math.max(200, (screenWidth - 1200) / 2);
+  };
+
+  const getImageDimensions = () => {
+    const containerWidth = screenWidth - getResponsiveMargin() * 2;
+    const imageWidth = screenWidth < 768 ? containerWidth : containerWidth;
+    const aspectRatio = 16 / 9;
+    return {
+      width: imageWidth,
+      height: imageWidth / aspectRatio,
+    };
+  };
 
   const handleLike = (postId: string) => {
     setPostsData(prev =>
@@ -47,24 +82,10 @@ export default function PostsScreen() {
     return `${diffDays}d ago`;
   };
 
-
-  const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
-useEffect(() => {
-  const subscription = Dimensions.addEventListener('change', ({ window }) => {
-    setScreenWidth(window.width);
-  });
-  return () => subscription?.remove();
-}, []);
-
-const [currentImageIndex, setCurrentImageIndex] = useState<{ [key: string]: number }>({});
+  const imageDimensions = getImageDimensions();
 
   return (
-    <View
-      style={[
-        styles.container,
-        { marginHorizontal: screenWidth > 1024 ? 600 : 0 }, // ✅ Dynamic margin
-      ]}
-    >
+    <View style={styles.container}>
       <Stack.Screen
         options={{
           title: 'Posts',
@@ -79,9 +100,16 @@ const [currentImageIndex, setCurrentImageIndex] = useState<{ [key: string]: numb
         }}
       />
 
-      <ScrollView showsVerticalScrollIndicator={false} >
+      <Animated.ScrollView
+        showsVerticalScrollIndicator={false}
+        style={{ opacity: fadeAnim }}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingHorizontal: getResponsiveMargin() },
+        ]}
+      >
         {postsData.map(post => (
-          <View key={post.id} style={styles.postCard}>
+          <Animated.View key={post.id} style={styles.postCard}>
             <View style={styles.postHeader}>
               <Image source={{ uri: post.user.avatar }} style={styles.avatar} />
               <View style={styles.userInfo}>
@@ -93,50 +121,52 @@ const [currentImageIndex, setCurrentImageIndex] = useState<{ [key: string]: numb
             <Text style={styles.postContent}>{post.content}</Text>
 
             {post.images.length > 0 && (
-            <View style={styles.imagesContainer}>
-              {post.images.length === 1 ? (
-                <Image
-                  source={{ uri: post.images[0] }}
-                  style={styles.singleImage}
-                  resizeMode='contain'
-                />
-              ) : (
-                <FlatList
-                  data={post.images}
-                  keyExtractor={(_, index) => index.toString()}
-                  horizontal
-                  pagingEnabled
-                  showsHorizontalScrollIndicator={false}
-                  onMomentumScrollEnd={event => {
-                    const index = Math.round(
-                      event.nativeEvent.contentOffset.x / event.nativeEvent.layoutMeasurement.width
-                    );
-                    setCurrentImageIndex(prev => ({ ...prev, [post.id]: index }));
-                  }}
-                  renderItem={({ item, index }) => (
-                    <View style={{ position: 'relative' }}>
-                      <Image
-                        source={{ uri: item }}
-                        style={styles.carouselImage}
-                        resizeMode="contain"
-                      />
-                      {/* Image count overlay */}
-                      <View style={styles.imageCounter}>
-                        <Text style={styles.imageCounterText}>
-                          { (currentImageIndex[post.id] ?? 0) + 1 } / {post.images.length}
-                        </Text>
+              <View style={styles.imagesContainer}>
+                {post.images.length === 1 ? (
+                  <Image
+                    source={{ uri: post.images[0] }}
+                    style={[styles.singleImage, imageDimensions]}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <FlatList
+                    data={post.images}
+                    keyExtractor={(_, index) => index.toString()}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    snapToInterval={imageDimensions.width}
+                    decelerationRate="fast"
+                    onMomentumScrollEnd={event => {
+                      const index = Math.round(
+                        event.nativeEvent.contentOffset.x / imageDimensions.width
+                      );
+                      setCurrentImageIndex(prev => ({ ...prev, [post.id]: index }));
+                    }}
+                    renderItem={({ item }) => (
+                      <View style={{ position: 'relative' }}>
+                        <Image
+                          source={{ uri: item }}
+                          style={[styles.carouselImage, imageDimensions]}
+                          resizeMode="cover"
+                        />
+                        <View style={styles.imageCounter}>
+                          <Text style={styles.imageCounterText}>
+                            {(currentImageIndex[post.id] ?? 0) + 1} / {post.images.length}
+                          </Text>
+                        </View>
                       </View>
-                    </View>
-                  )}
-                />
-              )}
-            </View>
-          )}
+                    )}
+                  />
+                )}
+              </View>
+            )}
 
             <View style={styles.postActions}>
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => handleLike(post.id)}
+                activeOpacity={0.7}
               >
                 <Heart
                   size={22}
@@ -153,26 +183,27 @@ const [currentImageIndex, setCurrentImageIndex] = useState<{ [key: string]: numb
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.actionButton}>
+              <TouchableOpacity style={styles.actionButton} activeOpacity={0.7}>
                 <MessageCircle size={22} color={Colors.textSecondary} />
                 <Text style={styles.actionText}>{post.comments}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.actionButton}>
+              <TouchableOpacity style={styles.actionButton} activeOpacity={0.7}>
                 <Share2 size={22} color={Colors.textSecondary} />
                 <Text style={styles.actionText}>{post.shares}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.actionButton, { marginLeft: 'auto' }]}>
+              <TouchableOpacity
+                style={[styles.actionButton, { marginLeft: 'auto' }]}
+                activeOpacity={0.7}
+              >
                 <Bookmark size={22} color={Colors.textSecondary} />
               </TouchableOpacity>
             </View>
-            <View style={styles.divider} />
-          </View>
+            {/* <View style={styles.divider} /> */}
+          </Animated.View>
         ))}
-        
-      </ScrollView>
-     
+      </Animated.ScrollView>
     </View>
   );
 }
@@ -181,7 +212,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-    // margin:20,
+  },
+  scrollContent: {
+    paddingBottom: 20,
   },
   createButton: {
     marginRight: 8,
@@ -190,6 +223,18 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     marginBottom: 16,
     paddingVertical: 8,
+    borderRadius: Platform.OS === 'web' ? 12 : 0,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   postHeader: {
     flexDirection: 'row',
@@ -208,7 +253,7 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 15,
-    fontWeight: '600' as const,
+    fontWeight: '600',
     color: Colors.text,
     marginBottom: 2,
   },
@@ -225,53 +270,27 @@ const styles = StyleSheet.create({
   },
   imagesContainer: {
     marginBottom: 12,
+    overflow: 'hidden',
   },
   singleImage: {
-    width: 1280,
-    height: 720,
     backgroundColor: Colors.backgroundSecondary,
-  },
-  multipleImages: {
-    flexDirection: 'row',
-    
   },
   carouselImage: {
-    width: 1280, // full screen width for swipe
-    height: 720, // square
     backgroundColor: Colors.backgroundSecondary,
-    marginRight: 0, // no gap between slides
   },
   imageCounter: {
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 12,
   },
-  
   imageCounterText: {
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
-  },
-  gridImage: {
-    width: width / 2,
-    height: width / 2,
-    backgroundColor: Colors.backgroundSecondary,
-  },
-  twoImages: {
-    width: width / 2,
-    height: width / 2,
-  },
-  threeImagesFirst: {
-    width: width,
-    height: width / 2,
-  },
-  threeImagesOther: {
-    width: width / 2,
-    height: width / 2,
   },
   postActions: {
     flexDirection: 'row',
@@ -283,17 +302,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: 20,
+    padding: 4,
   },
   actionText: {
     fontSize: 14,
     color: Colors.textSecondary,
     marginLeft: 6,
-    fontWeight: '500' as const,
+    fontWeight: '500',
   },
   divider: {
-    height: 1,                     // thin line
-    backgroundColor: '#C0C0C0',  // dark gray or black
-            // optional: align with post padding
-    marginTop: 32,             // spacing above and below line
+    height: 1,
+    backgroundColor: Colors.border,
+    marginTop: 16,
+    marginHorizontal: 16,
   },
 });
