@@ -8,12 +8,13 @@ import {
   FlatList,
   Image,
   Platform,
+  Linking,
 } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Send, GitCommit, Users, Github, MessageCircle } from 'lucide-react-native';
 import Colors from '@/constants/colors';
-import { currentUser } from '@/mocks/data';
+import { currentUser, projects } from '@/mocks/data';
 
 interface Message {
   id: string;
@@ -34,6 +35,9 @@ interface Commit {
 
 export default function ProjectDetailScreen() {
   const { id } = useLocalSearchParams();
+  const project = projects.find(p => p.id === id);
+console.log(project)
+
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'chat' | 'commits'>('chat');
   const [messageText, setMessageText] = useState<string>('');
@@ -63,6 +67,8 @@ export default function ProjectDetailScreen() {
       timestamp: '2024-01-15T10:40:00Z',
     },
   ]);
+
+  
 
   const [commits, setCommits] = useState<Commit[]>([
     {
@@ -95,16 +101,16 @@ export default function ProjectDetailScreen() {
     },
   ]);
 
-  const projectInfo = {
-    title: 'Campus Navigation App',
-    description: 'AR-based navigation system to help students find classrooms and facilities easily.',
-    members: [
-      { id: '1', name: 'Alex Johnson', avatar: 'https://i.pravatar.cc/150?img=33' },
-      { id: '2', name: 'Sarah Chen', avatar: 'https://i.pravatar.cc/150?img=45' },
-      { id: '3', name: 'Marcus Williams', avatar: 'https://i.pravatar.cc/150?img=12' },
-    ],
-    githubRepo: 'https://github.com/collegium/campus-nav',
-  };
+  // const projectInfo = {
+  //   title: 'Campus Navigation App',
+  //   description: 'AR-based navigation system to help students find classrooms and facilities easily.',
+  //   members: [
+  //     { id: '1', name: 'Alex Johnson', avatar: 'https://i.pravatar.cc/150?img=33' },
+  //     { id: '2', name: 'Sarah Chen', avatar: 'https://i.pravatar.cc/150?img=45' },
+  //     { id: '3', name: 'Marcus Williams', avatar: 'https://i.pravatar.cc/150?img=12' },
+  //   ],
+  //   githubRepo: 'https://github.com/collegium/campus-nav',
+  // };
 
   const sendMessage = () => {
     if (!messageText.trim()) return;
@@ -180,7 +186,7 @@ export default function ProjectDetailScreen() {
     <View style={styles.container}>
       <Stack.Screen
         options={{
-          title: projectInfo.title,
+          title: project?.title,
           headerStyle: {
             backgroundColor: Colors.white,
           },
@@ -194,13 +200,23 @@ export default function ProjectDetailScreen() {
       />
 
       <View style={styles.projectHeader}>
-        <Text style={styles.projectDescription}>{projectInfo.description}</Text>
+        <View style={styles.projectHeadingview}>
+          {project ? (
+            <>
+              <Text style={styles.projectHeading}>{project.title}</Text>
+              <Text style={styles.projectDescription}>{project.description}</Text>
+            </>
+          ) : (
+            <Text style={styles.projectHeading}>Project not found</Text>
+          )}
+        </View>
+        
         
         <View style={styles.projectMeta}>
           <View style={styles.membersContainer}>
             <Users size={16} color={Colors.textSecondary} />
             <View style={styles.memberAvatars}>
-              {projectInfo.members.slice(0, 3).map((member, index) => (
+              {project?.members.slice(0, 3).map((member, index) => (
                 <Image
                   key={member.id}
                   source={{ uri: member.avatar }}
@@ -208,10 +224,10 @@ export default function ProjectDetailScreen() {
                 />
               ))}
             </View>
-            <Text style={styles.memberCount}>{projectInfo.members.length} members</Text>
+            <Text style={styles.memberCount}>{project ? project.members.length : 0} members</Text>
           </View>
 
-          <TouchableOpacity style={styles.githubButton}>
+          <TouchableOpacity style={styles.githubButton} onPress={() => project?.githubRepo && Linking.openURL(project.githubRepo)}>
             <Github size={16} color={Colors.primary} />
             <Text style={styles.githubButtonText}>View Repo</Text>
           </TouchableOpacity>
@@ -286,6 +302,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  projectHeadingview: {
+    textAlign:'center',
+    height:100,
+  },
+  projectHeading: {
+    textAlign:'center',
+    fontSize:40,
+    fontWeight:700,
+  },
   projectHeader: {
     backgroundColor: Colors.white,
     padding: 16,
@@ -295,8 +320,9 @@ const styles = StyleSheet.create({
   projectDescription: {
     fontSize: 14,
     color: Colors.textSecondary,
-    lineHeight: 20,
+    lineHeight: 40,
     marginBottom: 12,
+    textAlign:'center',
   },
   projectMeta: {
     flexDirection: 'row',

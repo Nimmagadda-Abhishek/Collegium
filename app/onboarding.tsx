@@ -35,7 +35,7 @@ interface OnboardingData {
   major: string;
   year: string;
   githubUsername: string;
-  linkedinUrl: string;
+  linkedinUsername: string;
 }
 
 export default function OnboardingScreen() {
@@ -51,7 +51,7 @@ export default function OnboardingScreen() {
     major: '',
     year: '',
     githubUsername: '',
-    linkedinUrl: '',
+    linkedinUsername: '',
   });
 
   const steps = [
@@ -240,8 +240,8 @@ export default function OnboardingScreen() {
                 style={styles.input}
                 placeholder="https://linkedin.com/in/username"
                 placeholderTextColor={Colors.textLight}
-                value={data.linkedinUrl}
-                onChangeText={(text) => setData({ ...data, linkedinUrl: text })}
+                value={data.linkedinUsername}
+                onChangeText={(text) => setData({ ...data, linkedinUsername: text })}
                 autoCapitalize="none"
                 keyboardType="url"
               />

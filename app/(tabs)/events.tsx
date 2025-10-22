@@ -12,6 +12,7 @@ import { Calendar, MapPin, Users, Clock } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { events } from '@/mocks/data';
 import { Event } from '@/types';
+import { useRouter } from 'expo-router';
 
 export default function EventsScreen() {
   const insets = useSafeAreaInsets();
@@ -31,11 +32,18 @@ export default function EventsScreen() {
     });
   };
 
+  const router = useRouter();
+
   const renderEvent = (event: Event) => {
     const isAttending = attendingEvents.has(event.id);
     
     return (
-      <View key={event.id} style={styles.eventCard}>
+      <TouchableOpacity
+        key={event.id}
+        style={styles.eventCard}
+        activeOpacity={0.9}
+        onPress={() => router.push(`/event/${event.id}`)} // ✅ send event ID
+      >
         <Image source={{ uri: event.image }} style={styles.eventImage} />
         
         <View style={styles.eventContent}>
@@ -96,7 +104,7 @@ export default function EventsScreen() {
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 

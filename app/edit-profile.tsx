@@ -10,68 +10,86 @@ import {
   Alert,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { Camera, Github, Linkedin, MapPin, BookOpen, GraduationCap } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { Camera, Github, Linkedin, MapPin, BookOpen, GraduationCap, Edit2 } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function EditProfileScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
 
-  const [name, setName] = useState(user?.name || '');
-  const [bio, setBio] = useState(user?.bio || '');
-  const [university, setUniversity] = useState(user?.university || '');
-  const [major, setMajor] = useState(user?.major || '');
-  const [year, setYear] = useState(user?.year || '');
-  const [githubLinked, setGithubLinked] = useState(!!user?.githubUsername);
-  const [linkedinLinked, setLinkedinLinked] = useState(false);
+  if (!user) return null; // Prevent undefined errors
 
+  const [name, setName] = useState(user.name || '');
+  const [bio, setBio] = useState(user.bio || '');
+  const [university, setUniversity] = useState(user.university || '');
+  const [major, setMajor] = useState(user.major || '');
+  const [year, setYear] = useState(user.year || '');
+  const [githubLinked, setGithubLinked] = useState(!!user.githubUsername);
+  // const [linkedinLinked, setLinkedinLinked] = useState(!!user.linkedinUsername);
+  const [avatar, setAvatar] = useState(user.avatar || '');
+
+  // Save profile
   const handleSave = () => {
+    const updatedUser = {
+      ...user,
+      name,
+      bio,
+      university,
+      major,
+      year,
+      githubUsername: githubLinked ? user.githubUsername || 'githubUser' : null,
+      // linkedinUsername: linkedinLinked ? user.linkedinUsername || 'linkedinUser' : null,
+      avatar,
+    };
+
+    // if (updateUser) updateUser(updatedUser);
+
     Alert.alert('Success', 'Profile updated successfully!', [
-      {
-        text: 'OK',
-        onPress: () => router.back(),
-      },
+      { text: 'OK', onPress: () => router.back() },
     ]);
   };
 
+  
+
+  // Avatar picker
+  const handleAvatarChange = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+    });
+
+    if (!result.canceled && result.assets.length > 0) {
+      setAvatar(result.assets[0].uri);
+    }
+  };
+
+  // Link/unlink GitHub
   const handleLinkGithub = () => {
     if (githubLinked) {
-      Alert.alert('Unlink GitHub', 'Are you sure you want to unlink your GitHub account?', [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Unlink',
-          style: 'destructive',
-          onPress: () => setGithubLinked(false),
-        },
+      Alert.alert('Unlink GitHub?', '', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Unlink', style: 'destructive', onPress: () => setGithubLinked(false) },
       ]);
     } else {
-      Alert.alert('Link GitHub', 'GitHub account linked successfully!');
+      Alert.alert('GitHub linked!');
       setGithubLinked(true);
     }
   };
 
-  const handleLinkLinkedin = () => {
-    if (linkedinLinked) {
-      Alert.alert('Unlink LinkedIn', 'Are you sure you want to unlink your LinkedIn account?', [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Unlink',
-          style: 'destructive',
-          onPress: () => setLinkedinLinked(false),
-        },
-      ]);
-    } else {
-      Alert.alert('Link LinkedIn', 'LinkedIn account linked successfully!');
-      setLinkedinLinked(true);
-    }
-  };
+  // Link/unlink LinkedIn
+  // const handleLinkLinkedin = () => {
+  //   if (linkedinLinked) {
+  //     Alert.alert('Unlink LinkedIn?', '', [
+  //       { text: 'Cancel', style: 'cancel' },
+  //       { text: 'Unlink', style: 'destructive', onPress: () => setLinkedinLinked(false) },
+  //     ]);
+  //   } else {
+  //     Alert.alert('LinkedIn linked!');
+  //     setLinkedinLinked(true);
+  //   }
+  // };
 
   return (
     <View style={styles.container}>
@@ -87,13 +105,15 @@ export default function EditProfileScreen() {
       />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Avatar */}
         <View style={styles.avatarSection}>
-          <Image source={{ uri: user?.avatar }} style={styles.avatar} />
-          <TouchableOpacity style={styles.cameraButton}>
+          <Image source={{ uri: avatar }} style={styles.avatar} />
+          <TouchableOpacity style={styles.cameraButton} onPress={handleAvatarChange}>
             <Camera size={20} color={Colors.white} />
           </TouchableOpacity>
         </View>
 
+        {/* Name */}
         <View style={styles.section}>
           <Text style={styles.label}>Name</Text>
           <TextInput
@@ -105,6 +125,7 @@ export default function EditProfileScreen() {
           />
         </View>
 
+        {/* Bio */}
         <View style={styles.section}>
           <Text style={styles.label}>Bio</Text>
           <TextInput
@@ -114,10 +135,10 @@ export default function EditProfileScreen() {
             placeholder="Tell us about yourself"
             placeholderTextColor={Colors.textSecondary}
             multiline
-            numberOfLines={4}
           />
         </View>
 
+        {/* University */}
         <View style={styles.section}>
           <Text style={styles.label}>University</Text>
           <View style={styles.inputContainer}>
@@ -132,6 +153,7 @@ export default function EditProfileScreen() {
           </View>
         </View>
 
+        {/* Major */}
         <View style={styles.section}>
           <Text style={styles.label}>Major</Text>
           <View style={styles.inputContainer}>
@@ -146,6 +168,7 @@ export default function EditProfileScreen() {
           </View>
         </View>
 
+        {/* Year */}
         <View style={styles.section}>
           <Text style={styles.label}>Year</Text>
           <View style={styles.inputContainer}>
@@ -162,17 +185,16 @@ export default function EditProfileScreen() {
 
         <View style={styles.divider} />
 
+        {/* Connected Accounts */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Connected Accounts</Text>
           <Text style={styles.sectionDescription}>
             Link your social accounts to showcase your work and connect with others
           </Text>
 
+          {/* GitHub */}
           <TouchableOpacity
-            style={[
-              styles.linkButton,
-              githubLinked && styles.linkButtonConnected,
-            ]}
+            style={[styles.linkButton, githubLinked && styles.linkButtonConnected]}
             onPress={handleLinkGithub}
           >
             <View style={styles.linkButtonLeft}>
@@ -192,20 +214,15 @@ export default function EditProfileScreen() {
               </View>
             </View>
             <Text
-              style={[
-                styles.linkButtonText,
-                githubLinked && styles.linkButtonTextConnected,
-              ]}
+              style={[styles.linkButtonText, githubLinked && styles.linkButtonTextConnected]}
             >
               {githubLinked ? 'Unlink' : 'Link'}
             </Text>
           </TouchableOpacity>
 
+          {/* LinkedIn
           <TouchableOpacity
-            style={[
-              styles.linkButton,
-              linkedinLinked && styles.linkButtonConnected,
-            ]}
+            style={[styles.linkButton, linkedinLinked && styles.linkButtonConnected]}
             onPress={handleLinkLinkedin}
           >
             <View style={styles.linkButtonLeft}>
@@ -225,14 +242,11 @@ export default function EditProfileScreen() {
               </View>
             </View>
             <Text
-              style={[
-                styles.linkButtonText,
-                linkedinLinked && styles.linkButtonTextConnected,
-              ]}
+              style={[styles.linkButtonText, linkedinLinked && styles.linkButtonTextConnected]}
             >
               {linkedinLinked ? 'Unlink' : 'Link'}
             </Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
       </ScrollView>
     </View>
@@ -240,30 +254,11 @@ export default function EditProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  saveButton: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.primary,
-    marginRight: 16,
-  },
-  content: {
-    flex: 1,
-  },
-  avatarSection: {
-    alignItems: 'center',
-    paddingVertical: 32,
-    backgroundColor: Colors.white,
-    marginBottom: 16,
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-  },
+  container: { flex: 1, backgroundColor: Colors.background },
+  saveButton: { fontSize: 16, fontWeight: '600', color: Colors.primary, marginRight: 16 },
+  content: { flex: 1 },
+  avatarSection: { alignItems: 'center', paddingVertical: 32, backgroundColor: Colors.white, marginBottom: 16 },
+  avatar: { width: 100, height: 100, borderRadius: 50 },
   cameraButton: {
     position: 'absolute',
     bottom: 32,
@@ -278,108 +273,22 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: Colors.white,
   },
-  section: {
-    backgroundColor: Colors.white,
-    padding: 16,
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.text,
-    marginBottom: 8,
-  },
-  input: {
-    fontSize: 15,
-    color: Colors.text,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 8,
-    backgroundColor: Colors.background,
-  },
-  textArea: {
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 8,
-    backgroundColor: Colors.background,
-    gap: 10,
-  },
-  inputWithIcon: {
-    flex: 1,
-    fontSize: 15,
-    color: Colors.text,
-  },
-  divider: {
-    height: 8,
-    backgroundColor: Colors.backgroundSecondary,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.text,
-    marginBottom: 8,
-  },
-  sectionDescription: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    lineHeight: 20,
-    marginBottom: 20,
-  },
-  linkButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 12,
-    marginBottom: 12,
-    backgroundColor: Colors.background,
-  },
-  linkButtonConnected: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primary + '08',
-  },
-  linkButtonLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  linkIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  linkInfo: {
-    flex: 1,
-  },
-  linkTitle: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.text,
-    marginBottom: 2,
-  },
-  linkDescription: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-  },
-  linkButtonText: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    color: Colors.primary,
-  },
-  linkButtonTextConnected: {
-    color: Colors.error,
-  },
+  section: { backgroundColor: Colors.white, padding: 16, marginBottom: 16 },
+  label: { fontSize: 14, fontWeight: '600', color: Colors.text, marginBottom: 8 },
+  input: { fontSize: 15, color: Colors.text, padding: 12, borderWidth: 1, borderColor: Colors.border, borderRadius: 8, backgroundColor: Colors.background },
+  textArea: { minHeight: 100, textAlignVertical: 'top' },
+  inputContainer: { flexDirection: 'row', alignItems: 'center', padding: 12, borderWidth: 1, borderColor: Colors.border, borderRadius: 8, backgroundColor: Colors.background, gap: 10 },
+  inputWithIcon: { flex: 1, fontSize: 15, color: Colors.text },
+  divider: { height: 8, backgroundColor: Colors.backgroundSecondary },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: Colors.text, marginBottom: 8 },
+  sectionDescription: { fontSize: 14, color: Colors.textSecondary, lineHeight: 20, marginBottom: 20 },
+  linkButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, marginBottom: 12, backgroundColor: Colors.background },
+  linkButtonConnected: { borderColor: Colors.primary, backgroundColor: Colors.primary + '08' },
+  linkButtonLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  linkIconContainer: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  linkInfo: { flex: 1 },
+  linkTitle: { fontSize: 16, fontWeight: '600', color: Colors.text, marginBottom: 2 },
+  linkDescription: { fontSize: 13, color: Colors.textSecondary },
+  linkButtonText: { fontSize: 15, fontWeight: '600', color: Colors.primary },
+  linkButtonTextConnected: { color: Colors.error },
 });

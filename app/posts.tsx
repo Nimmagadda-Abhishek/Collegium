@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState,useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Image,
   TouchableOpacity,
   Dimensions,
+  FlatList,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { Heart, MessageCircle, Share2, Bookmark, Plus } from 'lucide-react-native';
@@ -46,8 +47,24 @@ export default function PostsScreen() {
     return `${diffDays}d ago`;
   };
 
+
+  const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
+useEffect(() => {
+  const subscription = Dimensions.addEventListener('change', ({ window }) => {
+    setScreenWidth(window.width);
+  });
+  return () => subscription?.remove();
+}, []);
+
+const [currentImageIndex, setCurrentImageIndex] = useState<{ [key: string]: number }>({});
+
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        { marginHorizontal: screenWidth > 1024 ? 600 : 0 }, // ✅ Dynamic margin
+      ]}
+    >
       <Stack.Screen
         options={{
           title: 'Posts',
@@ -62,7 +79,7 @@ export default function PostsScreen() {
         }}
       />
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} >
         {postsData.map(post => (
           <View key={post.id} style={styles.postCard}>
             <View style={styles.postHeader}>
@@ -76,30 +93,45 @@ export default function PostsScreen() {
             <Text style={styles.postContent}>{post.content}</Text>
 
             {post.images.length > 0 && (
-              <View style={styles.imagesContainer}>
-                {post.images.length === 1 ? (
-                  <Image
-                    source={{ uri: post.images[0] }}
-                    style={styles.singleImage}
-                  />
-                ) : (
-                  <View style={styles.multipleImages}>
-                    {post.images.slice(0, 4).map((image, index) => (
+            <View style={styles.imagesContainer}>
+              {post.images.length === 1 ? (
+                <Image
+                  source={{ uri: post.images[0] }}
+                  style={styles.singleImage}
+                  resizeMode='contain'
+                />
+              ) : (
+                <FlatList
+                  data={post.images}
+                  keyExtractor={(_, index) => index.toString()}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onMomentumScrollEnd={event => {
+                    const index = Math.round(
+                      event.nativeEvent.contentOffset.x / event.nativeEvent.layoutMeasurement.width
+                    );
+                    setCurrentImageIndex(prev => ({ ...prev, [post.id]: index }));
+                  }}
+                  renderItem={({ item, index }) => (
+                    <View style={{ position: 'relative' }}>
                       <Image
-                        key={index}
-                        source={{ uri: image }}
-                        style={[
-                          styles.gridImage,
-                          post.images.length === 2 && styles.twoImages,
-                          post.images.length === 3 && index === 0 && styles.threeImagesFirst,
-                          post.images.length === 3 && index > 0 && styles.threeImagesOther,
-                        ]}
+                        source={{ uri: item }}
+                        style={styles.carouselImage}
+                        resizeMode="contain"
                       />
-                    ))}
-                  </View>
-                )}
-              </View>
-            )}
+                      {/* Image count overlay */}
+                      <View style={styles.imageCounter}>
+                        <Text style={styles.imageCounterText}>
+                          { (currentImageIndex[post.id] ?? 0) + 1 } / {post.images.length}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                />
+              )}
+            </View>
+          )}
 
             <View style={styles.postActions}>
               <TouchableOpacity
@@ -135,9 +167,12 @@ export default function PostsScreen() {
                 <Bookmark size={22} color={Colors.textSecondary} />
               </TouchableOpacity>
             </View>
+            <View style={styles.divider} />
           </View>
         ))}
+        
       </ScrollView>
+     
     </View>
   );
 }
@@ -146,14 +181,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+    // margin:20,
   },
   createButton: {
     marginRight: 8,
   },
   postCard: {
     backgroundColor: Colors.white,
-    marginBottom: 8,
-    paddingVertical: 16,
+    marginBottom: 16,
+    paddingVertical: 8,
   },
   postHeader: {
     flexDirection: 'row',
@@ -191,13 +227,34 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   singleImage: {
-    width: width,
-    height: width,
+    width: 1280,
+    height: 720,
     backgroundColor: Colors.backgroundSecondary,
   },
   multipleImages: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    
+  },
+  carouselImage: {
+    width: 1280, // full screen width for swipe
+    height: 720, // square
+    backgroundColor: Colors.backgroundSecondary,
+    marginRight: 0, // no gap between slides
+  },
+  imageCounter: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  
+  imageCounterText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
   gridImage: {
     width: width / 2,
@@ -232,5 +289,11 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginLeft: 6,
     fontWeight: '500' as const,
+  },
+  divider: {
+    height: 1,                     // thin line
+    backgroundColor: '#C0C0C0',  // dark gray or black
+            // optional: align with post padding
+    marginTop: 32,             // spacing above and below line
   },
 });

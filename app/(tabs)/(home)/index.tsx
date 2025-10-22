@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TrendingUp, Users, Calendar, Sparkles, FolderGit2, MessageSquare } from 'lucide-react-native';
+import { TrendingUp, Users, Calendar, Sparkles, FolderGit2, MessageSquare ,Heart} from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import Colors from '@/constants/colors';
@@ -97,7 +97,7 @@ export default function HomeScreen() {
           </View>
 
           {projects.slice(0, 3).map((project) => (
-            <TouchableOpacity key={project.id} style={styles.projectCard}>
+            <TouchableOpacity key={project.id} style={styles.projectCard} onPress={() => router.push(`/project/${project.id}`)} >
               <View style={styles.projectHeader}>
                 <View style={styles.projectIconContainer}>
                   <FolderGit2 size={24} color={Colors.primary} />
@@ -121,7 +121,7 @@ export default function HomeScreen() {
                 <View style={styles.projectStats}>
                   <Users size={14} color={Colors.textSecondary} />
                   <Text style={styles.projectStatText}>{project.members.length}</Text>
-                  <MessageSquare size={14} color={Colors.textSecondary} style={{ marginLeft: 12 }} />
+                  <Heart size={14} color={Colors.textSecondary} style={{ marginLeft: 12 }} />
                   <Text style={styles.projectStatText}>{project.likes}</Text>
                 </View>
               </View>
@@ -138,7 +138,7 @@ export default function HomeScreen() {
           </View>
 
           {events.slice(0, 2).map((event) => (
-            <TouchableOpacity key={event.id} style={styles.eventCard}>
+            <TouchableOpacity key={event.id} style={styles.eventCard} onPress={() => router.push(`/event/${event.id}`)} >
               <View style={styles.eventDate}>
                 <Text style={styles.eventMonth}>
                   {new Date(event.date).toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}
