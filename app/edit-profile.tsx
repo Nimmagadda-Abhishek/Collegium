@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// edit-profile.tsx - Responsive with validation
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,10 +9,14 @@ import {
   ScrollView,
   Image,
   Alert,
+  Dimensions,
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, Github, Linkedin, MapPin, BookOpen, GraduationCap, Edit2 } from 'lucide-react-native';
+import { Camera, Github, Linkedin, MapPin, BookOpen, GraduationCap } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -19,7 +24,11 @@ export default function EditProfileScreen() {
   const router = useRouter();
   const { user, updateUser } = useAuth();
 
-  if (!user) return null; // Prevent undefined errors
+  const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+
+  if (!user) return null;
 
   const [name, setName] = useState(user.name || '');
   const [bio, setBio] = useState(user.bio || '');
@@ -27,11 +36,41 @@ export default function EditProfileScreen() {
   const [major, setMajor] = useState(user.major || '');
   const [year, setYear] = useState(user.year || '');
   const [githubLinked, setGithubLinked] = useState(!!user.githubUsername);
-  // const [linkedinLinked, setLinkedinLinked] = useState(!!user.linkedinUsername);
   const [avatar, setAvatar] = useState(user.avatar || '');
 
-  // Save profile
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 50,
+        friction: 7,
+      }),
+    ]).start();
+
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setScreenWidth(window.width);
+    });
+    return () => subscription?.remove();
+  }, []);
+
+  const getResponsiveMargin = () => {
+    if (screenWidth < 768) return 0;
+    if (screenWidth < 1024) return 100;
+    return Math.max(200, (screenWidth - 1000) / 2);
+  };
+
   const handleSave = () => {
+    if (!name.trim()) {
+      Alert.alert('Error', 'Name cannot be empty');
+      return;
+    }
+
     const updatedUser = {
       ...user,
       name,
@@ -40,24 +79,20 @@ export default function EditProfileScreen() {
       major,
       year,
       githubUsername: githubLinked ? user.githubUsername || 'githubUser' : null,
-      // linkedinUsername: linkedinLinked ? user.linkedinUsername || 'linkedinUser' : null,
       avatar,
     };
-
-    // if (updateUser) updateUser(updatedUser);
 
     Alert.alert('Success', 'Profile updated successfully!', [
       { text: 'OK', onPress: () => router.back() },
     ]);
   };
 
-  
-
-  // Avatar picker
   const handleAvatarChange = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.7,
+      allowsEditing: true,
+      aspect: [1, 1],
     });
 
     if (!result.canceled && result.assets.length > 0) {
@@ -65,7 +100,6 @@ export default function EditProfileScreen() {
     }
   };
 
-  // Link/unlink GitHub
   const handleLinkGithub = () => {
     if (githubLinked) {
       Alert.alert('Unlink GitHub?', '', [
@@ -78,44 +112,42 @@ export default function EditProfileScreen() {
     }
   };
 
-  // Link/unlink LinkedIn
-  // const handleLinkLinkedin = () => {
-  //   if (linkedinLinked) {
-  //     Alert.alert('Unlink LinkedIn?', '', [
-  //       { text: 'Cancel', style: 'cancel' },
-  //       { text: 'Unlink', style: 'destructive', onPress: () => setLinkedinLinked(false) },
-  //     ]);
-  //   } else {
-  //     Alert.alert('LinkedIn linked!');
-  //     setLinkedinLinked(true);
-  //   }
-  // };
-
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <Stack.Screen
         options={{
           title: 'Edit Profile',
           headerRight: () => (
-            <TouchableOpacity onPress={handleSave}>
+            <TouchableOpacity onPress={handleSave} activeOpacity={0.7}>
               <Text style={styles.saveButton}>Save</Text>
             </TouchableOpacity>
           ),
         }}
       />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <Animated.ScrollView
+        style={[styles.content, { opacity: fadeAnim }]}
+        contentContainerStyle={{ paddingHorizontal: getResponsiveMargin() }}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Avatar */}
-        <View style={styles.avatarSection}>
+        <Animated.View style={[styles.avatarSection, { transform: [{ scale: scaleAnim }] }]}>
           <Image source={{ uri: avatar }} style={styles.avatar} />
-          <TouchableOpacity style={styles.cameraButton} onPress={handleAvatarChange}>
+          <TouchableOpacity
+            style={styles.cameraButton}
+            onPress={handleAvatarChange}
+            activeOpacity={0.7}
+          >
             <Camera size={20} color={Colors.white} />
           </TouchableOpacity>
-        </View>
+        </Animated.View>
 
         {/* Name */}
         <View style={styles.section}>
-          <Text style={styles.label}>Name</Text>
+          <Text style={styles.label}>Name *</Text>
           <TextInput
             style={styles.input}
             value={name}
@@ -135,7 +167,9 @@ export default function EditProfileScreen() {
             placeholder="Tell us about yourself"
             placeholderTextColor={Colors.textSecondary}
             multiline
+            maxLength={200}
           />
+          <Text style={styles.charCount}>{bio.length}/200</Text>
         </View>
 
         {/* University */}
@@ -196,6 +230,7 @@ export default function EditProfileScreen() {
           <TouchableOpacity
             style={[styles.linkButton, githubLinked && styles.linkButtonConnected]}
             onPress={handleLinkGithub}
+            activeOpacity={0.7}
           >
             <View style={styles.linkButtonLeft}>
               <View
@@ -219,37 +254,9 @@ export default function EditProfileScreen() {
               {githubLinked ? 'Unlink' : 'Link'}
             </Text>
           </TouchableOpacity>
-
-          {/* LinkedIn
-          <TouchableOpacity
-            style={[styles.linkButton, linkedinLinked && styles.linkButtonConnected]}
-            onPress={handleLinkLinkedin}
-          >
-            <View style={styles.linkButtonLeft}>
-              <View
-                style={[
-                  styles.linkIconContainer,
-                  { backgroundColor: linkedinLinked ? '#0A66C2' : Colors.backgroundSecondary },
-                ]}
-              >
-                <Linkedin size={24} color={linkedinLinked ? Colors.white : Colors.text} />
-              </View>
-              <View style={styles.linkInfo}>
-                <Text style={styles.linkTitle}>LinkedIn</Text>
-                <Text style={styles.linkDescription}>
-                  {linkedinLinked ? 'Connected' : 'Connect your LinkedIn account'}
-                </Text>
-              </View>
-            </View>
-            <Text
-              style={[styles.linkButtonText, linkedinLinked && styles.linkButtonTextConnected]}
-            >
-              {linkedinLinked ? 'Unlink' : 'Link'}
-            </Text>
-          </TouchableOpacity> */}
         </View>
-      </ScrollView>
-    </View>
+      </Animated.ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -257,7 +264,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   saveButton: { fontSize: 16, fontWeight: '600', color: Colors.primary, marginRight: 16 },
   content: { flex: 1 },
-  avatarSection: { alignItems: 'center', paddingVertical: 32, backgroundColor: Colors.white, marginBottom: 16 },
+  avatarSection: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    backgroundColor: Colors.white,
+    marginBottom: 16,
+    borderRadius: 12,
+  },
   avatar: { width: 100, height: 100, borderRadius: 50 },
   cameraButton: {
     position: 'absolute',
@@ -272,20 +285,81 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 3,
     borderColor: Colors.white,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
-  section: { backgroundColor: Colors.white, padding: 16, marginBottom: 16 },
+  section: {
+    backgroundColor: Colors.white,
+    padding: 16,
+    marginBottom: 16,
+    borderRadius: 12,
+  },
   label: { fontSize: 14, fontWeight: '600', color: Colors.text, marginBottom: 8 },
-  input: { fontSize: 15, color: Colors.text, padding: 12, borderWidth: 1, borderColor: Colors.border, borderRadius: 8, backgroundColor: Colors.background },
+  input: {
+    fontSize: 15,
+    color: Colors.text,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    backgroundColor: Colors.background,
+  },
   textArea: { minHeight: 100, textAlignVertical: 'top' },
-  inputContainer: { flexDirection: 'row', alignItems: 'center', padding: 12, borderWidth: 1, borderColor: Colors.border, borderRadius: 8, backgroundColor: Colors.background, gap: 10 },
+  charCount: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    textAlign: 'right',
+    marginTop: 4,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    backgroundColor: Colors.background,
+    gap: 10,
+  },
   inputWithIcon: { flex: 1, fontSize: 15, color: Colors.text },
   divider: { height: 8, backgroundColor: Colors.backgroundSecondary },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: Colors.text, marginBottom: 8 },
-  sectionDescription: { fontSize: 14, color: Colors.textSecondary, lineHeight: 20, marginBottom: 20 },
-  linkButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, marginBottom: 12, backgroundColor: Colors.background },
+  sectionDescription: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  linkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    marginBottom: 12,
+    backgroundColor: Colors.background,
+  },
   linkButtonConnected: { borderColor: Colors.primary, backgroundColor: Colors.primary + '08' },
   linkButtonLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  linkIconContainer: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  linkIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
   linkInfo: { flex: 1 },
   linkTitle: { fontSize: 16, fontWeight: '600', color: Colors.text, marginBottom: 2 },
   linkDescription: { fontSize: 13, color: Colors.textSecondary },

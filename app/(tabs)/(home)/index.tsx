@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TrendingUp, Users, Calendar, Sparkles, FolderGit2, MessageSquare ,Heart} from 'lucide-react-native';
+import { TrendingUp, Users, Calendar, Settings, FolderGit2, MessageSquare ,Heart} from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import Colors from '@/constants/colors';
@@ -37,8 +37,8 @@ export default function HomeScreen() {
             <Text style={styles.greeting}>Welcome back!</Text>
             <Text style={styles.appName}>Collegium</Text>
           </View>
-          <TouchableOpacity style={styles.notificationButton}>
-            <Sparkles size={24} color={Colors.white} />
+          <TouchableOpacity style={styles.notificationButton} onPress={() => router.push('/settings')}>
+            <Settings size={24} color={Colors.white} />
           </TouchableOpacity>
         </View>
 
