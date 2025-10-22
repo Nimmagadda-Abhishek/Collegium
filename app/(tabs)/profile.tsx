@@ -1,5 +1,4 @@
-// profile.tsx - Responsive with smooth transitions
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,425 +9,451 @@ import {
   Dimensions,
   Animated,
   Platform,
+  Modal,
+  Share,
+  Alert,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
   Settings,
-  Github,
-  MapPin,
-  Calendar,
-  Edit2,
-  MessageCircle,
-  Linkedin,
   Grid,
   Folder,
+  Calendar,
+  ArrowLeft,
+  MoreVertical,
+  Share2,
+  Link,
+  QrCode,
+  Archive,
+  Clock,
+  LogOut,
+  HelpCircle,
+  X,
+  FolderGit2,
+  Users,
   Heart,
-  MessageSquare,
 } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { posts, projects, events } from '@/mocks/data';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Responsive columns
+const getColumns = () => {
+  if (SCREEN_WIDTH >= 1200) return 5;
+  if (SCREEN_WIDTH >= 900) return 4;
+  if (SCREEN_WIDTH >= 600) return 3;
+  return 3;
+};
+const GRID_COLUMNS = getColumns();
+const GRID_GAP = 6;
+const GRID_ITEM_SIZE = (SCREEN_WIDTH - GRID_GAP * (GRID_COLUMNS + 1)) / GRID_COLUMNS;
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<'posts' | 'projects' | 'events'>('posts');
-  const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
-  
+  const [menuVisible, setMenuVisible] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const menuSlideAnim = useRef(new Animated.Value(0)).current;
   const tabIndicator = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 400,
-      useNativeDriver: true,
-    }).start();
+  const userEvents = events.filter(e => e.isAttending);
 
-    const subscription = Dimensions.addEventListener('change', ({ window }) => {
-      setScreenWidth(window.width);
-    });
-    return () => subscription?.remove();
+  useEffect(() => {
+    Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
   }, []);
 
   useEffect(() => {
-    const tabIndex = activeTab === 'posts' ? 0 : activeTab === 'projects' ? 1 : 2;
-    Animated.spring(tabIndicator, {
-      toValue: tabIndex,
-      useNativeDriver: true,
-      tension: 100,
-      friction: 10,
-    }).start();
+    const index = activeTab === 'posts' ? 0 : activeTab === 'projects' ? 1 : 2;
+    Animated.spring(tabIndicator, { toValue: index, useNativeDriver: true, tension: 80, friction: 8 }).start();
   }, [activeTab]);
 
   if (!user) return null;
 
-  const userPosts = posts.filter(p => p.userId === user.id);
-  const userProjects = projects.filter(p => p.owner.id === user.id);
-  const userEvents = events.filter(e => e.isAttending);
-
-  const getColumnCount = () => {
-    if (screenWidth < 768) return 3;
-    if (screenWidth < 1024) return 4;
-    return 6;
+  const handleShare = async () => {
+    try {
+      await Share.share({ message: `Check out ${user.name}'s profile on Collegium!` });
+    } catch {
+      Alert.alert('Error', 'Could not share profile.');
+    }
   };
 
-  const getGridItemWidth = () => {
-    const columns = getColumnCount();
-    const padding = 4;
-    return (screenWidth - padding * (columns + 1)) / columns;
+  const handleLogout = () => {
+    Alert.alert('Logout', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Logout', style: 'destructive', onPress: () => { logout(); router.replace('/login'); } },
+    ]);
   };
 
-  const gridItemWidth = getGridItemWidth();
+  const openMenu = () => {
+    setMenuVisible(true);
+    Animated.spring(menuSlideAnim, { toValue: 1, useNativeDriver: true }).start();
+  };
+  const closeMenu = () => {
+    Animated.timing(menuSlideAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() =>
+      setMenuVisible(false)
+    );
+  };
+
+  const translateX = tabIndicator.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: [0, SCREEN_WIDTH / 3, (SCREEN_WIDTH * 2) / 3],
+  });
 
   return (
-    <Animated.ScrollView
-      style={[styles.container, { opacity: fadeAnim }]}
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={styles.container}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <LinearGradient
-          colors={[Colors.primary, Colors.secondary]}
-          style={styles.headerGradient}
-        />
-
-        <View style={styles.profileSection}>
-          <View style={styles.avatarContainer}>
-            <Image source={{ uri: user.avatar }} style={styles.avatar} />
-            <TouchableOpacity
-              style={styles.editAvatarButton}
-              onPress={() => router.push('/edit-profile')}
-              activeOpacity={0.7}
-            >
-              <Edit2 size={16} color={Colors.white} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.nameSection}>
-            <Text style={styles.name}>{user.name}</Text>
-            <Text style={styles.email}>{user.email}</Text>
-          </View>
-
-          <View style={styles.statsRow}>
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>{userPosts.length}</Text>
-              <Text style={styles.statLabel}>Posts</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>{userProjects.length}</Text>
-              <Text style={styles.statLabel}>Projects</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>{user.followers}</Text>
-              <Text style={styles.statLabel}>Followers</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>{user.following}</Text>
-              <Text style={styles.statLabel}>Following</Text>
-            </View>
-          </View>
-        </View>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+          <ArrowLeft size={24} color={Colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{user.name}</Text>
+        <TouchableOpacity onPress={openMenu} style={styles.headerButton}>
+          <MoreVertical size={24} color={Colors.text} />
+        </TouchableOpacity>
       </View>
 
-      {/* Info Section */}
-      <View style={styles.content}>
-        <View style={styles.infoSection}>
-          <Text style={styles.bio}>{user.bio}</Text>
-
-          <View style={styles.infoItems}>
-            <View style={styles.infoRow}>
-              <MapPin size={16} color={Colors.textSecondary} />
-              <Text style={styles.infoText}>{user.university}</Text>
+      <Animated.ScrollView style={{ opacity: fadeAnim }} showsVerticalScrollIndicator={false}>
+        
+        {/* Profile Info */}
+        <View style={styles.profileWrapper}>
+          <View style={styles.profileSection}>
+            <View style={styles.profileHeader}>
+              <Image source={{ uri: user.avatar }} style={styles.avatar} />
+              <View style={styles.statsContainer}>
+                <View style={styles.statItem}>
+                  <Text style={styles.statNumber}>{posts.length}</Text>
+                  <Text style={styles.statLabel}>Posts</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={styles.statNumber}>{projects.length}</Text>
+                  <Text style={styles.statLabel}>Projects</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={styles.statNumber}>{userEvents.length}</Text>
+                  <Text style={styles.statLabel}>Events</Text>
+                </View>
+              </View>
             </View>
 
-            <View style={styles.infoRow}>
-              <Calendar size={16} color={Colors.textSecondary} />
-              <Text style={styles.infoText}>{user.major} • {user.year}</Text>
+            <View style={styles.infoSection}>
+              <Text style={styles.displayName}>{user.name}</Text>
+              {user.bio ? <Text style={styles.bio}>{user.bio}</Text> : null}
+              <Text style={styles.university}>{user.university}</Text>
+              <Text style={styles.majorYear}>{user.major} • {user.year}</Text>
             </View>
-          </View>
 
-          <View style={styles.socialLinks}>
-            <TouchableOpacity style={styles.socialButton} activeOpacity={0.7}>
-              <Github size={20} color={Colors.white} />
-              <Text style={styles.socialButtonText}>
-                {user.githubUsername ? '@' + user.githubUsername : 'Link GitHub'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.socialButton} activeOpacity={0.7}>
-              <Linkedin size={20} color={Colors.white} />
-              <Text style={styles.socialButtonText}>Link LinkedIn</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => router.push('/edit-profile')}
-              activeOpacity={0.7}
-            >
-              <Edit2 size={18} color={Colors.primary} />
-              <Text style={styles.actionButtonText}>Edit Profile</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => router.push('/chats')}
-              activeOpacity={0.7}
-            >
-              <MessageCircle size={18} color={Colors.primary} />
-              <Text style={styles.actionButtonText}>Messages</Text>
-            </TouchableOpacity>
+            <View style={styles.actionButtons}>
+              <TouchableOpacity style={styles.editButton} onPress={() => router.push('/edit-profile')}>
+                <Text style={styles.editButtonText}>Edit Profile</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
+                <Text style={styles.shareButtonText}>Share</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
         {/* Tabs */}
-        <View style={styles.tabs}>
-          <Animated.View
-            style={[
-              styles.tabIndicator,
-              {
-                transform: [
-                  {
-                    translateX: tabIndicator.interpolate({
-                      inputRange: [0, 1, 2],
-                      outputRange: [0, screenWidth / 3, (screenWidth * 2) / 3],
-                    }),
-                  },
-                ],
-                width: screenWidth / 3,
-              },
-            ]}
-          />
-          <TouchableOpacity
-            style={styles.tab}
-            onPress={() => setActiveTab('posts')}
-            activeOpacity={0.7}
-          >
-            <Grid size={20} color={activeTab === 'posts' ? Colors.primary : Colors.textSecondary} />
-            <Text style={[styles.tabText, activeTab === 'posts' && styles.tabTextActive]}>Posts</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.tab}
-            onPress={() => setActiveTab('projects')}
-            activeOpacity={0.7}
-          >
-            <Folder size={20} color={activeTab === 'projects' ? Colors.primary : Colors.textSecondary} />
-            <Text style={[styles.tabText, activeTab === 'projects' && styles.tabTextActive]}>Projects</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.tab}
-            onPress={() => setActiveTab('events')}
-            activeOpacity={0.7}
-          >
-            <Calendar size={20} color={activeTab === 'events' ? Colors.primary : Colors.textSecondary} />
-            <Text style={[styles.tabText, activeTab === 'events' && styles.tabTextActive]}>Events</Text>
-          </TouchableOpacity>
+        <View style={styles.tabsContainer}>
+          {/* <Animated.View style={[styles.tabIndicator, { transform: [{ translateX }] }]} /> */}
+          {['posts', 'projects', 'events'].map(tab => {
+            const icons = { posts: Grid, projects: Folder, events: Calendar };
+            const Icon = icons[tab as keyof typeof icons];
+            return (
+              <TouchableOpacity
+                key={tab}
+                style={styles.tab}
+                onPress={() => setActiveTab(tab as any)}
+              >
+                <Icon
+                  size={24}
+                  color={activeTab === tab ? Colors.primary : Colors.textSecondary}
+                  strokeWidth={activeTab === tab ? 2.5 : 1.5}
+                />
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        {/* Posts Tab */}
+        {/* Posts Grid */}
         {activeTab === 'posts' && (
-          <View style={styles.tabContent}>
-            <Text style={styles.uploadCount}>{`Uploaded Posts: ${userPosts.length}`}</Text>
-            {userPosts.length > 0 ? (
-              <View style={styles.grid}>
-                {userPosts.map(post => (
+          <View style={styles.gridContainer}>
+            {posts.length > 0 ? (
+              <View style={[styles.grid, { justifyContent: 'flex-start' }]}>
+                {posts.map(post => (
                   <TouchableOpacity
                     key={post.id}
-                    style={[styles.gridItem, { width: gridItemWidth, height: gridItemWidth }]}
                     onPress={() => router.push(`/post/${post.id}`)}
-                    activeOpacity={0.7}
+                    activeOpacity={0.9}
+                    style={[styles.gridItem, { width: GRID_ITEM_SIZE, height: GRID_ITEM_SIZE }]}
                   >
                     <Image source={{ uri: post.images[0] }} style={styles.gridImage} />
                   </TouchableOpacity>
                 ))}
               </View>
             ) : (
-              <Text style={styles.noDataText}>No posts yet.</Text>
+              <EmptyState
+                icon={<Grid size={64} color={Colors.border} />}
+                title="No Posts"
+                desc="Share your first post"
+              />
             )}
           </View>
         )}
 
-        {/* Projects Tab */}
+        {/* Projects List */}
         {activeTab === 'projects' && (
-          <View style={styles.tabContent}>
-            <Text style={styles.uploadCount}>{`Uploaded Projects: ${userProjects.length}`}</Text>
-            {userProjects.length > 0 ? (
-              <View style={styles.projectsList}>
-                {userProjects.map(project => (
-                  <TouchableOpacity
-                    key={project.id}
-                    style={styles.projectCard}
-                    onPress={() => router.push(`/project/${project.id}`)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.projectHeader}>
+          <View style={styles.projectsContainer}>
+            {projects.length ? (
+              projects.map(project => (
+                <TouchableOpacity
+                  key={project.id}
+                  style={styles.projectCard}
+                  onPress={() => router.push(`/project/${project.id}`)}
+                >
+                  <View style={styles.projectHeader}>
+                    <FolderGit2 size={24} color={Colors.primary} />
+                    <View style={{ marginLeft: 10 }}>
                       <Text style={styles.projectTitle}>{project.title}</Text>
-                      <View style={styles.projectStatus}>
-                        <Text style={styles.projectStatusText}>{project.status}</Text>
-                      </View>
+                      <Text style={styles.projectOwner}>by {project.owner.name}</Text>
                     </View>
-                    <Text style={styles.projectDescription} numberOfLines={2}>
-                      {project.description}
-                    </Text>
+                  </View>
+                  <Text style={styles.projectDescription} numberOfLines={2}>{project.description}</Text>
+                  <View style={styles.projectFooter}>
                     <View style={styles.projectTags}>
-                      {project.tags.slice(0, 3).map((tag, index) => (
-                        <View key={index} style={styles.projectTag}>
-                          <Text style={styles.projectTagText}>{tag}</Text>
-                        </View>
+                      {project.tags.slice(0, 2).map((tag, i) => (
+                        <View key={i} style={styles.tag}><Text style={styles.tagText}>{tag}</Text></View>
                       ))}
                     </View>
-                    <View style={styles.projectFooter}>
-                      <View style={styles.projectStat}>
-                        <Heart size={16} color={Colors.textSecondary} />
-                        <Text style={styles.projectStatText}>{project.likes}</Text>
-                      </View>
-                      <View style={styles.projectStat}>
-                        <MessageSquare size={16} color={Colors.textSecondary} />
-                        <Text style={styles.projectStatText}>{project.members.length} members</Text>
-                      </View>
+                    <View style={styles.projectStats}>
+                      <Users size={14} color={Colors.textSecondary} />
+                      <Text style={styles.projectStatText}>{project.members.length}</Text>
+                      <Heart size={14} color={Colors.textSecondary} style={{ marginLeft: 10 }} />
+                      <Text style={styles.projectStatText}>{project.likes}</Text>
                     </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                  </View>
+                </TouchableOpacity>
+              ))
             ) : (
-              <Text style={styles.noDataText}>No projects yet.</Text>
+              <EmptyState
+                icon={<Folder size={64} color={Colors.border} />}
+                title="No Projects"
+                desc="Start collaborating with others"
+              />
             )}
           </View>
         )}
 
-        {/* Events Tab */}
+        {/* Events Grid */}
         {activeTab === 'events' && (
-          <View style={styles.tabContent}>
-            <Text style={styles.uploadCount}>{`Events Attending: ${userEvents.length}`}</Text>
-            {userEvents.length > 0 ? (
-              <View style={styles.eventsList}>
+          <View style={styles.gridContainer}>
+            {userEvents.length ? (
+              <View style={[styles.grid, { justifyContent: 'flex-start' }]}>
                 {userEvents.map(event => (
                   <TouchableOpacity
                     key={event.id}
-                    style={styles.eventCard}
                     onPress={() => router.push(`/event/${event.id}`)}
-                    activeOpacity={0.7}
+                    style={[styles.gridItem, { width: GRID_ITEM_SIZE, height: GRID_ITEM_SIZE }]}
                   >
-                    <Image source={{ uri: event.image }} style={styles.eventImage} />
-                    <View style={styles.eventContent}>
-                      <View style={styles.eventCategory}>
-                        <Text style={styles.eventCategoryText}>{event.category}</Text>
-                      </View>
+                    <Image source={{ uri: event.image }} style={styles.gridImage} />
+                    <View style={styles.eventOverlay}>
                       <Text style={styles.eventTitle}>{event.title}</Text>
-                      <View style={styles.eventMeta}>
-                        <View style={styles.eventMetaItem}>
-                          <Calendar size={14} color={Colors.textSecondary} />
-                          <Text style={styles.eventMetaText}>
-                            {new Date(event.date).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                            })}
-                          </Text>
-                        </View>
-                        <View style={styles.eventMetaItem}>
-                          <MapPin size={14} color={Colors.textSecondary} />
-                          <Text style={styles.eventMetaText} numberOfLines={1}>
-                            {event.location}
-                          </Text>
-                        </View>
-                      </View>
+                      <Text style={styles.eventDate}>
+                        {new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </Text>
                     </View>
                   </TouchableOpacity>
                 ))}
               </View>
             ) : (
-              <Text style={styles.noDataText}>You are not attending any events yet.</Text>
+              <EmptyState
+                icon={<Calendar size={64} color={Colors.border} />}
+                title="No Events"
+                desc="Events you join will appear here"
+              />
             )}
           </View>
         )}
-      </View>
-    </Animated.ScrollView>
+      </Animated.ScrollView>
+
+      {/* Menu Modal */}
+      <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={closeMenu}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={closeMenu}>
+          <Animated.View style={[styles.menuContainer, {
+            transform: [{ translateY: menuSlideAnim.interpolate({ inputRange: [0, 1], outputRange: [600, 0] }) }],
+          }]}>
+            <View style={styles.menuHeader}>
+              <Text style={styles.menuTitle}>Options</Text>
+              <TouchableOpacity onPress={closeMenu}><X size={22} color={Colors.textSecondary} /></TouchableOpacity>
+            </View>
+            <ScrollView>
+              <MenuItem icon={<Share2 size={22} color={Colors.text} />} label="Share Profile" onPress={handleShare} />
+              <MenuItem icon={<Link size={22} color={Colors.text} />} label="Copy Link" />
+              <MenuItem icon={<QrCode size={22} color={Colors.text} />} label="Show QR Code" />
+              <MenuItem icon={<Archive size={22} color={Colors.text} />} label="Archive" />
+              <MenuItem icon={<Clock size={22} color={Colors.text} />} label="Your Activity" />
+              <MenuItem icon={<Settings size={22} color={Colors.text} />} label="Settings" onPress={() => router.push('/settings')} />
+              <MenuItem icon={<HelpCircle size={22} color={Colors.text} />} label="Help & Support" />
+              <MenuItem icon={<LogOut size={22} color={Colors.accent} />} label="Logout" danger onPress={handleLogout} />
+            </ScrollView>
+          </Animated.View>
+        </TouchableOpacity>
+      </Modal>
+    </View>
   );
 }
 
+// Helper components
+const MenuItem = ({ icon, label, onPress, danger }: any) => (
+  <TouchableOpacity style={styles.menuItem} onPress={onPress}>
+    <View style={styles.menuIcon}>{icon}</View>
+    <Text style={[styles.menuText, danger && { color: Colors.accent }]}>{label}</Text>
+  </TouchableOpacity>
+);
+
+const EmptyState = ({ icon, title, desc }: any) => (
+  <View style={styles.emptyState}>
+    {icon}
+    <Text style={styles.emptyTitle}>{title}</Text>
+    <Text style={styles.emptyDesc}>{desc}</Text>
+  </View>
+);
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: { backgroundColor: Colors.white },
-  headerGradient: { height: 120, paddingHorizontal: 20, paddingTop: 16 },
-  profileSection: { paddingHorizontal: 20, marginTop: -50 },
-  avatarContainer: { position: 'relative', alignSelf: 'center' },
-  avatar: { width: 100, height: 100, borderRadius: 50, borderWidth: 4, borderColor: Colors.white },
-  editAvatarButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.primary,
+  container: { flex: 1, backgroundColor: Colors.white },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: Colors.white, paddingHorizontal: 16, paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border,
+  },
+  headerButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 16, fontWeight: '600', color: Colors.text },
+
+  profileWrapper: {
+    width: '100%',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: Colors.white,
   },
-  nameSection: { alignItems: 'center', marginTop: 12, marginBottom: 20 },
-  name: { fontSize: 22, fontWeight: '700', color: Colors.text, marginBottom: 4 },
-  email: { fontSize: 14, color: Colors.textSecondary },
-  statsRow: { flexDirection: 'row', backgroundColor: Colors.backgroundSecondary, borderRadius: 16, padding: 16, marginBottom: 20 },
-  statBox: { flex: 1, alignItems: 'center' },
-  statValue: { fontSize: 18, fontWeight: '700', color: Colors.text, marginBottom: 4 },
+
+  profileSection: {
+    width: SCREEN_WIDTH >= 900 ? '60%' : '100%',
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    alignSelf: 'center',
+    backgroundColor: Colors.white,
+  },
+  
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 22,
+    width: '100%',
+    justifyContent: 'space-between',
+  },
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: Colors.backgroundSecondary,
+    marginRight: 20,
+  },
+  
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    flex: 1,
+  },
+  statItem: { alignItems: 'center' },
+  statNumber: { fontSize: 18, fontWeight: '700', color: Colors.text },
   statLabel: { fontSize: 12, color: Colors.textSecondary },
-  content: { flex: 1 },
-  infoSection: { paddingHorizontal: 20, paddingVertical: 16, backgroundColor: Colors.white },
-  bio: { fontSize: 14, color: Colors.text, lineHeight: 20, marginBottom: 16 },
-  infoItems: { gap: 8, marginBottom: 16 },
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  infoText: { fontSize: 13, color: Colors.textSecondary },
-  socialLinks: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  socialButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 12, backgroundColor: Colors.text, borderRadius: 10, gap: 8 },
-  socialButtonText: { fontSize: 13, fontWeight: '600', color: Colors.white },
-  actionButtons: { flexDirection: 'row', gap: 12 },
-  actionButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, backgroundColor: Colors.primary + '15', borderRadius: 10, gap: 6 },
-  actionButtonText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
-  tabs: { flexDirection: 'row', backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border, marginTop: 8, position: 'relative' },
-  tabIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    height: 3,
-    backgroundColor: Colors.primary,
+  infoSection: { marginBottom: 10 },
+  displayName: { fontSize: 16, fontWeight: '700', color: Colors.text },
+  bio: { fontSize: 14, color: Colors.textSecondary, marginVertical: 4 },
+  university: { fontSize: 13, color: Colors.textSecondary },
+  majorYear: { fontSize: 13, color: Colors.textSecondary },
+
+  
+actionButtons: {
+  flexDirection: SCREEN_WIDTH >= 600 ? 'row' : 'column',
+  gap: 10,
+  marginTop: 12,
+  justifyContent: 'center',
+},
+
+editButton: {
+  flex: 1,
+  backgroundColor: Colors.backgroundSecondary,
+  paddingVertical: 10,
+  borderRadius: 8,
+  alignItems: 'center',
+},
+
+editButtonText: {
+  color: Colors.text,
+  fontWeight: '600',
+},
+
+shareButton: {
+  flex: 1,
+  backgroundColor: Colors.backgroundSecondary,
+  paddingVertical: 10,
+  borderRadius: 8,
+  alignItems: 'center',
+},
+
+shareButtonText: {
+  color: Colors.text,
+  fontWeight: '600',
+},
+
+  tabsContainer: { flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border,marginVertical: 16, position: 'relative',width: SCREEN_WIDTH >= 900 ? '60%' : '100%',justifyContent:"center",alignSelf:"center" },
+  tab: { flex: 1, alignItems: 'center', paddingVertical: 10 },
+  // tabIndicator: { position: 'absolute', top: 0, height: 2, backgroundColor: Colors.primary, width: SCREEN_WIDTH/3 },
+
+  gridContainer: { paddingTop: 4, alignItems: 'center' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP, justifyContent: 'center', maxWidth: 1300 },
+  gridItem: { backgroundColor: Colors.backgroundSecondary, borderRadius: 8, overflow: 'hidden' },
+  gridImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+
+  projectsContainer: { padding: 16, alignItems: 'center' },
+  projectCard: {
+    backgroundColor: Colors.white, borderRadius: 12, borderWidth: 1, borderColor: Colors.border,
+    padding: 12, marginBottom: 12, width: SCREEN_WIDTH >= 600 ? '60%' : '100%',
   },
-  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, gap: 6 },
-  tabText: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
-  tabTextActive: { color: Colors.primary },
-  tabContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20 },
-  uploadCount: { fontSize: 14, fontWeight: '600', color: Colors.text, marginBottom: 12 },
-  noDataText: { textAlign: 'center', color: Colors.textSecondary, marginTop: 20, fontSize: 14 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', padding: 2 },
-  gridItem: { padding: 2 },
-  gridImage: { width: '100%', height: '100%', borderRadius: 4 },
-  projectsList: { padding: 16 },
-  projectCard: { backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: Colors.border },
-  projectHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
-  projectTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: Colors.text },
-  projectStatus: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, backgroundColor: Colors.primary + '20' },
-  projectStatusText: { fontSize: 11, fontWeight: '600', color: Colors.primary, textTransform: 'capitalize' },
-  projectDescription: { fontSize: 13, color: Colors.textSecondary, lineHeight: 18, marginBottom: 12 },
-  projectTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
-  projectTag: { backgroundColor: Colors.backgroundSecondary, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  projectTagText: { fontSize: 11, color: Colors.primary, fontWeight: '500' },
-  projectFooter: { flexDirection: 'row', gap: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.border },
-  projectStat: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  projectStatText: { fontSize: 13, color: Colors.textSecondary },
-  eventsList: { padding: 16, gap: 2, marginHorizontal: 8 },
-  eventCard: { backgroundColor: Colors.white, borderRadius: 16, marginBottom: 12, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border },
-  eventImage: { width: '100%', height: 180 },
-  eventContent: { padding: 12 },
-  eventCategory: { alignSelf: 'flex-start', backgroundColor: Colors.primary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginBottom: 8 },
-  eventCategoryText: { fontSize: 11, fontWeight: '600', color: Colors.white },
-  eventTitle: { fontSize: 15, fontWeight: '700', color: Colors.text, marginBottom: 8 },
-  eventMeta: { flexDirection: 'row', gap: 12 },
-  eventMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 },
-  eventMetaText: { fontSize: 12, color: Colors.textSecondary },
+  projectHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  projectTitle: { fontSize: 15, fontWeight: '700', color: Colors.text },
+  projectOwner: { fontSize: 13, color: Colors.textSecondary },
+  projectDescription: { fontSize: 14, color: Colors.textSecondary, marginBottom: 8 },
+  projectFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  projectTags: { flexDirection: 'row', gap: 6 },
+  tag: { backgroundColor: Colors.primary + '15', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  tagText: { fontSize: 10, color: Colors.primary, fontWeight: '600' },
+  projectStats: { flexDirection: 'row', alignItems: 'center' },
+  projectStatText: { marginLeft: 4, color: Colors.textSecondary, fontSize: 13 },
+
+  eventOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.6)', padding: 6 },
+  eventTitle: { fontSize: 10, color: Colors.white, fontWeight: '600' },
+  eventDate: { fontSize: 10, color: Colors.white },
+
+  emptyState: { alignItems: 'center', paddingVertical: 80 },
+  emptyTitle: { fontSize: 20, fontWeight: '700', marginVertical: 6, color: Colors.text },
+  emptyDesc: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center' },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  menuContainer: {
+    backgroundColor: Colors.white, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 16,
+  },
+  menuHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    padding: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border,
+  },
+  menuTitle: { fontSize: 18, fontWeight: '700', color: Colors.text },
+  menuItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14 },
+  menuIcon: { width: 32, alignItems: 'center' },
+  menuText: { fontSize: 15, marginLeft: 12, color: Colors.text },
 });

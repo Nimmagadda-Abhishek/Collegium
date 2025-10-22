@@ -8,7 +8,7 @@ export interface User {
   major: string;
   year: string;
   githubUsername?: string;
-  linkedinUrl?: string;
+  linkedinUsername?: string;
   followers: number;
   following: number;
 }
@@ -16,7 +16,8 @@ export interface User {
 export interface Post {
   id: string;
   userId: string;
-  user: User;
+  user: User[];
+  
   content: string;
   images: string[];
   likes: number;
@@ -24,6 +25,7 @@ export interface Post {
   shares: number;
   isLiked: boolean;
   createdAt: string;
+  commentsList: Comment[];
 }
 
 export interface Story {

@@ -37,8 +37,8 @@ export default function HomeScreen() {
             <Text style={styles.greeting}>Welcome back!</Text>
             <Text style={styles.appName}>Collegium</Text>
           </View>
-          <TouchableOpacity style={styles.notificationButton} onPress={() => router.push('/settings')}>
-            <Settings size={24} color={Colors.white} />
+          <TouchableOpacity style={styles.notificationButton} onPress={() => router.push('/chats')}>
+            <MessageSquare size={24} color={Colors.white} />
           </TouchableOpacity>
         </View>
 
