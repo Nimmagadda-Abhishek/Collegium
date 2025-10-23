@@ -94,7 +94,11 @@ export const posts: Post[] = [
     shares: 5,
     isLiked: false,
     createdAt: '2024-01-15T14:30:00Z',
-    
+    commentsList: [
+      { user: 'Alex Johnson', text: 'Looks amazing! The color scheme is perfect.' },
+      { user: 'Marcus Williams', text: 'Love the UX flow, very intuitive.' },
+      { user: 'Emma Davis', text: 'Can’t wait to try it out!' },
+    ],
   },
   {
     id: '2',
@@ -107,6 +111,11 @@ export const posts: Post[] = [
     shares: 23,
     isLiked: true,
     createdAt: '2024-01-15T12:15:00Z',
+    commentsList: [
+      { user: 'Sarah Chen', text: 'Wow, that’s impressive accuracy!' },
+      { user: 'Alex Johnson', text: 'Which dataset did you use for training?' },
+      { user: 'Emma Davis', text: 'Can you share some insights on the model architecture?' },
+    ],
   },
   {
     id: '3',
@@ -122,6 +131,11 @@ export const posts: Post[] = [
     shares: 3,
     isLiked: false,
     createdAt: '2024-01-15T10:00:00Z',
+    commentsList: [
+      { user: 'Marcus Williams', text: 'I’m in! What time does it start?' },
+      { user: 'Sarah Chen', text: 'Do we need to bring our own laptops?' },
+      { user: 'Alex Johnson', text: 'Can someone share the notes afterward?' },
+    ],
   },
 ];
 
