@@ -14,10 +14,12 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Stack } from 'expo-router';
 import { useRouter } from 'expo-router';
-import { Search, Plus, Trash2, X, Check } from 'lucide-react-native';
+
+import { Search, Plus, Trash2, X, Check, ArrowLeft } from 'lucide-react-native';
 import Colors from '@/constants/colors';
-import { chats } from '@/mocks/data';
+import { chats, currentUser } from '@/mocks/data';
 import { Chat, User } from '@/types';
 
 export default function ChatsScreen() {
@@ -27,6 +29,9 @@ export default function ChatsScreen() {
   const [activeTab, setActiveTab] = useState('All');
   const [customSelected, setCustomSelected] = useState<string[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
+  const [modalMode, setModalMode] = useState<'custom' | 'group'>('custom');
+  const [groupName, setGroupName] = useState('');
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [selectedChats, setSelectedChats] = useState<string[]>([]);
@@ -43,27 +48,34 @@ export default function ChatsScreen() {
   const filterChats = () => {
     let filtered = chats;
     switch (activeTab) {
-      // case 'Active':
-      //   filtered = filtered.filter(chat => chat.isActive);
-      //   break;
+      case 'Active':
+        filtered = filtered.filter(chat => chat.requestStatus !== 'pending');
+        break;
+      case 'All':
+        // Exclude pending requests from All tab
+        filtered = filtered.filter(chat => chat.requestStatus !== 'pending');
+        break;
       case 'Unread':
-        filtered = filtered.filter(chat => chat.unreadCount > 0);
+        filtered = filtered.filter(chat => chat.unreadCount > 0 && chat.requestStatus !== 'pending');
         break;
       case 'Groups':
-        filtered = filtered.filter(chat => chat.isGroup);
+        filtered = filtered.filter(chat => chat.isGroup && chat.requestStatus !== 'pending');
+        break;
+      case 'Requests':
+        filtered = filtered.filter(chat => chat.requestStatus === 'pending');
         break;
       case 'Custom':
         filtered = filtered.filter(chat =>
-          chat.participants.some(p => customSelected.includes(p.id))
+          chat.participants.some(p => customSelected.includes(p.id)) && chat.requestStatus !== 'pending'
         );
         break;
     }
     // Apply search
     if (searchQuery.trim() !== '') {
       filtered = filtered.filter(chat => {
-        const name = chat.isGroup ? chat.groupName : chat.participants[1].name;
+        const name = chat.isGroup ? chat.groupName : chat.participants[1]?.name;
         return (
-          // name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
           chat.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
         );
       });
@@ -73,11 +85,19 @@ export default function ChatsScreen() {
 
   // Toggle contact selection for custom tab
   const toggleContact = (contactId: string) => {
-    setCustomSelected(prev =>
-      prev.includes(contactId)
-        ? prev.filter(id => id !== contactId)
-        : [...prev, contactId]
-    );
+    if (modalMode === 'custom') {
+      setCustomSelected(prev =>
+        prev.includes(contactId)
+          ? prev.filter(id => id !== contactId)
+          : [...prev, contactId]
+      );
+    } else {
+      setSelectedMembers(prev =>
+        prev.includes(contactId)
+          ? prev.filter(id => id !== contactId)
+          : [...prev, contactId]
+      );
+    }
   };
 
   // Toggle chat selection in multi-select mode
@@ -115,6 +135,63 @@ export default function ChatsScreen() {
     );
   };
 
+  // Create new group chat
+  const createGroup = () => {
+    if (!groupName.trim()) {
+      Alert.alert('Error', 'Please enter a group name');
+      return;
+    }
+    if (selectedMembers.length < 2) {
+      Alert.alert('Error', 'Please select at least 2 members');
+      return;
+    }
+
+    const groupMembers = selectedMembers.map(id => allContacts.find(c => c.id === id)!);
+    const newGroupChat: Chat = {
+      id: Date.now().toString(),
+      participants: groupMembers,
+      lastMessage: 'Group created',
+      lastMessageTime: new Date().toISOString(),
+      unreadCount: 0,
+      isGroup: true,
+      groupName: groupName.trim(),
+      groupAvatar: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400', // Default group avatar
+    };
+
+    // Add to chats array (in real app, this would be an API call)
+    chats.unshift(newGroupChat); // Add to beginning of array
+
+    // Reset modal state
+    setModalVisible(false);
+    setModalMode('custom');
+    setGroupName('');
+    setSelectedMembers([]);
+
+    // Navigate to the new group chat
+    router.push(`/chat/${newGroupChat.id}`);
+  };
+
+  // Handle accept/block for requests
+  const handleAcceptRequest = (chatId: string) => {
+    const chat = chats.find(c => c.id === chatId);
+    if (chat) {
+      chat.requestStatus = 'accepted';
+      Alert.alert('Success', 'Message request accepted');
+    }
+  };
+
+  const handleBlockRequest = (chatId: string) => {
+    const chat = chats.find(c => c.id === chatId);
+    if (chat) {
+      chat.requestStatus = 'blocked';
+      const otherUser = chat.participants.find(p => p.id !== currentUser.id);
+      if (otherUser && currentUser.blockedUsers) {
+        currentUser.blockedUsers.push(otherUser.id);
+      }
+      Alert.alert('Success', 'User blocked');
+    }
+  };
+
   // Render chat item
   const renderChat = (chat: Chat) => {
     const displayName = chat.isGroup
@@ -125,21 +202,23 @@ export default function ChatsScreen() {
       : chat.participants[1].avatar;
 
     const isSelected = selectedChats.includes(chat.id);
+    const isRequest = chat.requestStatus === 'pending';
 
     return (
-      <TouchableOpacity
-        key={chat.id}
-        style={[
-          styles.chatItem,
-          multiSelectMode && isSelected && styles.chatItemSelected,
-        ]}
-        onPress={() => {
-          if (multiSelectMode) toggleChatSelection(chat.id);
-          else router.push(`/chat/${chat.id}`);
-        }}
-        onLongPress={() => handleLongPress(chat.id)}
-        activeOpacity={0.7}
-      >
+      <View key={chat.id} style={styles.chatItemContainer}>
+        <TouchableOpacity
+          style={[
+            styles.chatItem,
+            multiSelectMode && isSelected && styles.chatItemSelected,
+          ]}
+          onPress={() => {
+            if (multiSelectMode) toggleChatSelection(chat.id);
+            else if (!isRequest) router.push(`/chat/${chat.id}`);
+          }}
+          onLongPress={() => !isRequest && handleLongPress(chat.id)}
+          activeOpacity={0.7}
+          disabled={isRequest}
+        >
         <View style={styles.avatarContainer}>
           <Image source={{ uri: displayAvatar }} style={styles.avatar} />
           {multiSelectMode && (
@@ -179,199 +258,266 @@ export default function ChatsScreen() {
           </Text>
         </View>
       </TouchableOpacity>
+
+      {isRequest && (
+        <View style={styles.requestActions}>
+          <TouchableOpacity
+            style={[styles.requestButton, styles.acceptButton]}
+            onPress={() => handleAcceptRequest(chat.id)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.acceptButtonText}>Accept</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.requestButton, styles.blockButton]}
+            onPress={() => handleBlockRequest(chat.id)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.blockButtonText}>Block</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
     );
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      {/* <View style={[styles.header, { paddingTop: 20 }]}>
-        <Text style={styles.headerTitle}></Text>
-        {activeTab === 'Custom' && !multiSelectMode && (
-          <TouchableOpacity 
-            style={styles.headerButton} 
-            onPress={() => setModalVisible(true)}
-            activeOpacity={0.7}
-          >
-            <Plus size={24} color={Colors.primary} />
-          </TouchableOpacity>
-        )}
-      </View> */}
-
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Search size={20} color={Colors.textSecondary} style={styles.searchIcon} />
-        <TextInput
-          placeholder="Search messages..."
-          placeholderTextColor={Colors.textSecondary}
-          style={styles.searchInput}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
-            <X size={18} color={Colors.textSecondary} />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Tabs */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabsScrollView}
-        contentContainerStyle={styles.tabsContainer}
-      >
-        {['All', 'Active', 'Unread', 'Groups', 'Custom'].map(tab => (
-          <TouchableOpacity
-            key={tab}
-            style={[
-              styles.tabButton,
-              activeTab === tab && styles.activeTabButton,
-            ]}
-            onPress={() => setActiveTab(tab)}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === tab && styles.activeTabText,
-              ]}
-            >
-              {tab}
-            </Text>
-            {tab === 'Unread' && chats.filter(c => c.unreadCount > 0).length > 0 && (
-              <View style={styles.tabBadge}>
-                <Text style={styles.tabBadgeText}>
-                  {chats.filter(c => c.unreadCount > 0).length}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Action bar for multi-select */}
-      {multiSelectMode && (
-        <View style={styles.actionBar}>
-          <Text style={styles.actionBarText}>
-            {selectedChats.length} selected
-          </Text>
-          <View style={styles.actionBarButtons}>
-            <TouchableOpacity 
-              onPress={deleteSelectedChats} 
-              style={styles.actionButton}
-              activeOpacity={0.7}
-            >
-              <Trash2 size={20} color={Colors.white} />
-              <Text style={styles.actionText}>Delete</Text>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.container}>
+        {/* Custom colored header */}
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+          <View style={styles.headerContent}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+              <ArrowLeft size={24} color={Colors.white} />
             </TouchableOpacity>
-            <TouchableOpacity 
-              onPress={() => {
-                setMultiSelectMode(false);
-                setSelectedChats([]);
-              }} 
-              style={[styles.actionButton, styles.actionButtonSecondary]}
+            <Text style={styles.headerTitle}>Chats</Text>
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => router.push('/create-group')}
               activeOpacity={0.7}
             >
-              <Text style={[styles.actionText, styles.actionTextSecondary]}>Cancel</Text>
+              <Plus size={24} color={Colors.white} />
             </TouchableOpacity>
           </View>
         </View>
-      )}
 
-      {/* Chat List */}
-      <ScrollView 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.chatList}
-      >
-        {filterChats().length > 0 ? (
-          filterChats().map(renderChat)
-        ) : (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No chats found</Text>
-            <Text style={styles.emptySubtext}>
-              {searchQuery ? 'Try a different search term' : 'Start a new conversation'}
-            </Text>
-            <View style={[styles.header, { paddingTop: 20 }]}>
-        <Text style={styles.headerTitle}></Text>
-        {activeTab === 'Custom' && !multiSelectMode && (
-          <TouchableOpacity 
-            style={styles.headerButton} 
-            onPress={() => setModalVisible(true)}
-            activeOpacity={0.7}
-          >
-            <Plus size={24} color={Colors.primary} />
-          </TouchableOpacity>
-        )}
-      </View>
-          </View>
-        )}
-      </ScrollView>
-
-      {/* Modal for selecting contacts for Custom Tab */}
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Contacts</Text>
-            <TouchableOpacity 
-              onPress={() => setModalVisible(false)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.modalDone}>Done</Text>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Search size={20} color={Colors.textSecondary} style={styles.searchIcon} />
+          <TextInput
+            placeholder="Search messages..."
+            placeholderTextColor={Colors.textSecondary}
+            style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
+              <X size={18} color={Colors.textSecondary} />
             </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Tabs */}
+        <View style={styles.tabsWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabsContainer}
+          >
+            {['All', 'Active', 'Unread', 'Groups', 'Requests'].map(tab => (
+              <TouchableOpacity
+                key={tab}
+                style={[
+                  styles.tabButton,
+                  activeTab === tab && styles.activeTabButton,
+                ]}
+                onPress={() => setActiveTab(tab)}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.tabText,
+                    activeTab === tab && styles.activeTabText,
+                  ]}
+                >
+                  {tab}
+                </Text>
+                {tab === 'Unread' && chats.filter(c => c.unreadCount > 0).length > 0 && (
+                  <View style={styles.tabBadge}>
+                    <Text style={styles.tabBadgeText}>
+                      {chats.filter(c => c.unreadCount > 0).length}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Action bar for multi-select */}
+        {multiSelectMode && (
+          <View style={styles.actionBar}>
+            <Text style={styles.actionBarText}>
+              {selectedChats.length} selected
+            </Text>
+            <View style={styles.actionBarButtons}>
+              <TouchableOpacity 
+                onPress={deleteSelectedChats} 
+                style={styles.actionButton}
+                activeOpacity={0.7}
+              >
+                <Trash2 size={20} color={Colors.white} />
+                <Text style={styles.actionText}>Delete</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={() => {
+                  setMultiSelectMode(false);
+                  setSelectedChats([]);
+                }} 
+                style={[styles.actionButton, styles.actionButtonSecondary]}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.actionText, styles.actionTextSecondary]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          
-          {customSelected.length > 0 && (
-            <View style={styles.selectedContactsBar}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {customSelected.map(contactId => {
-                  const contact = allContacts.find(c => c.id === contactId);
-                  return (
-                    <View key={contactId} style={styles.selectedContactChip}>
-                      <Text style={styles.selectedContactName} numberOfLines={1}>
-                        {contact?.name}
-                      </Text>
-                      <TouchableOpacity onPress={() => toggleContact(contactId)}>
-                        <X size={16} color={Colors.white} />
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })}
-              </ScrollView>
+        )}
+
+        {/* Chat List */}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.chatList}
+        >
+          {filterChats().length > 0 ? (
+            filterChats().map(chat => renderChat(chat))
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>
+                {activeTab === 'Requests' ? 'No message requests' : 'No chats found'}
+              </Text>
+              <Text style={styles.emptySubtext}>
+                {searchQuery
+                  ? 'Try a different search term'
+                  : activeTab === 'Requests'
+                    ? 'Message requests from new contacts will appear here'
+                    : 'Start a new conversation'
+                }
+              </Text>
             </View>
           )}
+        </ScrollView>
 
-          <FlatList
-            data={allContacts}
-            keyExtractor={item => item.id}
-            renderItem={({ item }) => {
-              const isSelected = customSelected.includes(item.id);
-              return (
+        {/* Modal for selecting contacts for Custom Tab or Creating Group */}
+        <Modal
+          visible={modalVisible}
+          animationType="slide"
+          onRequestClose={() => {
+            setModalVisible(false);
+            setModalMode('custom');
+            setGroupName('');
+            setSelectedMembers([]);
+          }}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {modalMode === 'custom' ? 'Select Contacts' : 'Create Group'}
+              </Text>
+              <View style={styles.modalHeaderButtons}>
+                {modalMode === 'custom' ? (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setModalMode('group');
+                      setSelectedMembers(customSelected);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.modalCreateGroup}>Create Group</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    onPress={createGroup}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.modalDone}>Create</Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity
-                  style={[
-                    styles.contactItem,
-                    isSelected && styles.contactItemSelected,
-                  ]}
-                  onPress={() => toggleContact(item.id)}
+                  onPress={() => {
+                    setModalVisible(false);
+                    setModalMode('custom');
+                    setGroupName('');
+                    setSelectedMembers([]);
+                  }}
                   activeOpacity={0.7}
                 >
-                  <Image source={{ uri: item.avatar }} style={styles.contactAvatar} />
-                  <Text style={styles.contactName}>{item.name}</Text>
-                  <View style={[styles.checkbox, isSelected && styles.checkboxActive]}>
-                    {isSelected && <Check size={16} color={Colors.white} />}
-                  </View>
+                  <Text style={styles.modalCancel}>Cancel</Text>
                 </TouchableOpacity>
-              );
-            }}
-          />
-        </View>
-      </Modal>
-    </View>
+              </View>
+            </View>
+
+            {modalMode === 'group' && (
+              <View style={styles.groupNameContainer}>
+                <TextInput
+                  style={styles.groupNameInput}
+                  placeholder="Enter group name"
+                  placeholderTextColor={Colors.textSecondary}
+                  value={groupName}
+                  onChangeText={setGroupName}
+                  maxLength={50}
+                />
+              </View>
+            )}
+            
+            {(modalMode === 'custom' ? customSelected.length > 0 : selectedMembers.length > 0) && (
+              <View style={styles.selectedContactsBar}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {(modalMode === 'custom' ? customSelected : selectedMembers).map(contactId => {
+                    const contact = allContacts.find(c => c.id === contactId);
+                    return (
+                      <View key={contactId} style={styles.selectedContactChip}>
+                        <Text style={styles.selectedContactName} numberOfLines={1}>
+                          {contact?.name}
+                        </Text>
+                        <TouchableOpacity onPress={() => toggleContact(contactId)}>
+                          <X size={16} color={Colors.white} />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+
+            <FlatList
+              data={allContacts}
+              keyExtractor={item => item.id}
+              renderItem={({ item }) => {
+                const isSelected = customSelected.includes(item.id);
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.contactItem,
+                      isSelected && styles.contactItemSelected,
+                    ]}
+                    onPress={() => toggleContact(item.id)}
+                    activeOpacity={0.7}
+                  >
+                    <Image source={{ uri: item.avatar }} style={styles.contactAvatar} />
+                    <Text style={styles.contactName}>{item.name}</Text>
+                    <View style={[styles.checkbox, isSelected && styles.checkboxActive]}>
+                      {isSelected && <Check size={16} color={Colors.white} />}
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </Modal>
+      </View>
+    </>
   );
 }
 
@@ -382,22 +528,29 @@ const styles = StyleSheet.create({
     
   },
   header: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 2,
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: '700',
-    color: Colors.text,
+    color: Colors.white,
   },
   headerButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -427,31 +580,7 @@ const styles = StyleSheet.create({
     maxHeight: 50,
     marginBottom: 12,
   },
-  tabsContainer: {
-    paddingHorizontal: 20,
-    gap: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  
-    // 💻 Centered smaller layout on web
-    ...(Platform.OS === 'web' && {
-      maxWidth: 700,
-      alignSelf: 'center',
-    }),
-  },
-  tabButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    backgroundColor: Colors.backgroundSecondary,
-    gap: 6,
-  
-    // 💻 Desktop scaling
-    
-  },
+  // tabsContainer is updated below
   activeTabButton: {
     backgroundColor: Colors.primary,
     shadowColor: Colors.primary,
@@ -494,14 +623,51 @@ const styles = StyleSheet.create({
   },
   chatItem: {
     flexDirection: 'row',
-    padding: 16,
-    marginHorizontal: 20,
+    paddingVertical: 16,
+    
     marginBottom: 8,
     backgroundColor: Colors.white,
     borderRadius: 16,
   },
   chatItemSelected: {
     backgroundColor: Colors.backgroundSecondary,
+  },
+  chatItemContainer: {
+    
+    marginHorizontal: 15,
+  },
+  requestActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: Colors.white,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.border,
+  },
+  requestButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  acceptButton: {
+    backgroundColor: Colors.primary,
+  },
+  blockButton: {
+    backgroundColor: Colors.accent,
+  },
+  acceptButtonText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  blockButtonText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: '600',
   },
   avatarContainer: { 
     position: 'relative', 
@@ -711,4 +877,58 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderColor: Colors.primary,
   },
+  modalHeaderButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  modalCreateGroup: {
+    fontSize: 16,
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+  modalCancel: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+  },
+  groupNameContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  groupNameInput: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: Colors.text,
+    backgroundColor: Colors.background,
+  },
+  tabsWrapper: {
+    width: '100%',
+    paddingVertical: 8,
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingHorizontal: 20,
+    gap: 10,
+  },
+  tabButton: {
+    flexShrink: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    backgroundColor: Colors.backgroundSecondary,
+    gap: 6,
+  },
 });
+
+  

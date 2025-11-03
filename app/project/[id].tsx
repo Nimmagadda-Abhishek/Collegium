@@ -11,10 +11,11 @@ import {
   Linking,
   Animated,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Send, GitCommit, Users, Github, MessageCircle, AlertCircle ,ArrowLeft} from 'lucide-react-native';
+import { Send, GitCommit, Users, Github, MessageCircle, AlertCircle, ArrowLeft, MoreVertical } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { currentUser, projects } from '@/mocks/data';
 
@@ -47,6 +48,7 @@ export default function ProjectDetailScreen() {
   const [messageText, setMessageText] = useState<string>('');
   const [inputHeight, setInputHeight] = useState(40);
   const tabIndicator = useRef(new Animated.Value(0)).current;
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -254,13 +256,75 @@ export default function ProjectDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity 
-              onPress={() => router.back()} 
-              style={styles.headerButton}
-              activeOpacity={0.7}
-            >
-              <ArrowLeft size={24} color={Colors.text} />
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+        <View style={styles.headerContent}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+            <ArrowLeft size={24} color={Colors.white} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Project</Text>
+          <TouchableOpacity onPress={() => setMenuOpen(prev => !prev)} style={styles.headerButton}>
+            <MoreVertical size={24} color={Colors.white} />
+          </TouchableOpacity>
+        </View>
+      </View>
+      {menuOpen && (
+        <>
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => setMenuOpen(false)}
+            style={styles.overlay}
+          />
+          <View style={styles.menuContainer}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => {
+              router.push(`/project/${project.id}/edit`);
+              setMenuOpen(false);
+            }}>
+              <Text style={styles.menuText}>Edit Project</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => {
+              Alert.alert(
+                'Delete Project',
+                'Are you sure you want to delete this project? This action cannot be undone.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: () => {
+                      // In a real app, this would delete the project from the backend
+                      const projectIndex = projects.findIndex(p => p.id === id);
+                      if (projectIndex !== -1) {
+                        projects.splice(projectIndex, 1);
+                      }
+                      Alert.alert('Success', 'Project deleted successfully', [
+                        { text: 'OK', onPress: () => router.replace('/(tabs)/projects') }
+                      ]);
+                    }
+                  }
+                ]
+              );
+              setMenuOpen(false);
+            }}>
+              <Text style={[styles.menuText, { color: '#DC2626' }]}>Delete Project</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => {
+              if (project?.githubRepo) {
+                Linking.openURL(project.githubRepo).catch(() => {
+                  alert('Unable to open GitHub repository');
+                });
+              } else {
+                alert('No GitHub repository linked');
+              }
+              setMenuOpen(false);
+            }}>
+              <Text style={styles.menuText}>View GitHub Repo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => setMenuOpen(false)}>
+              <Text style={[styles.menuText, { color: Colors.textSecondary }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
       <Stack.Screen
         options={{
           title: project.title,
@@ -418,12 +482,30 @@ export default function ProjectDetailScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop:50,
+    paddingTop: 0,
     flex: 1,
     backgroundColor: Colors.background,
   },
+  header: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Colors.white,
+  },
   headerButton: {
-    paddingHorizontal: 16,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   errorContainer: {
     flex: 1,
@@ -744,5 +826,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.textSecondary,
     marginTop: 12,
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+    zIndex: 9,
+  },
+  menuContainer: {
+    position: 'absolute',
+    top: 100,
+    right: 40,
+    backgroundColor: Colors.white,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+    zIndex: 10,
+  },
+  menuItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  menuText: {
+    fontSize: 14,
+    color: Colors.text,
   },
 });

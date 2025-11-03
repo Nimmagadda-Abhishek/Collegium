@@ -31,7 +31,9 @@ import {
   FolderGit2,
   Users,
   Heart,
+  Bookmark,
 } from 'lucide-react-native';
+import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Colors from '@/constants/colors';
@@ -55,20 +57,23 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState<'posts' | 'projects' | 'events'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'projects' | 'events' | 'saved'>('posts');
   const [menuVisible, setMenuVisible] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const menuSlideAnim = useRef(new Animated.Value(0)).current;
   const tabIndicator = useRef(new Animated.Value(0)).current;
 
+  const userPosts = posts.filter(p => p.userId === user!.id);
   const userEvents = events.filter(e => e.isAttending);
+  const userProjects = projects.filter(p => p.owner.id === user!.id || p.members.some(m => m.id === user!.id));
+  const savedPostsData = posts.filter(p => user!.savedPosts?.includes(p.id));
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
   }, []);
 
   useEffect(() => {
-    const index = activeTab === 'posts' ? 0 : activeTab === 'projects' ? 1 : 2;
+    const index = activeTab === 'posts' ? 0 : activeTab === 'projects' ? 1 : activeTab === 'events' ? 2 : 3;
     Animated.spring(tabIndicator, { toValue: index, useNativeDriver: true, tension: 80, friction: 8 }).start();
   }, [activeTab]);
 
@@ -100,21 +105,25 @@ export default function ProfileScreen() {
   };
 
   const translateX = tabIndicator.interpolate({
-    inputRange: [0, 1, 2],
-    outputRange: [0, SCREEN_WIDTH / 3, (SCREEN_WIDTH * 2) / 3],
+    inputRange: [0, 1, 2, 3],
+    outputRange: [0, SCREEN_WIDTH / 4, (SCREEN_WIDTH * 2) / 4, (SCREEN_WIDTH * 3) / 4],
   });
 
   return (
+    <>
+    <Stack.Screen options={{ headerShown: false }} />
     <View style={styles.container}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-          <ArrowLeft size={24} color={Colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{user.name}</Text>
-        <TouchableOpacity onPress={openMenu} style={styles.headerButton}>
-          <MoreVertical size={24} color={Colors.text} />
-        </TouchableOpacity>
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+        <View style={styles.headerContent}>
+          {/* <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+            <ArrowLeft size={24} color={Colors.white} />
+          </TouchableOpacity> */}
+          <Text style={styles.headerTitle}>{user.name}</Text>
+          <TouchableOpacity onPress={openMenu} style={styles.headerButton}>
+            <MoreVertical size={24} color={Colors.white} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <Animated.ScrollView style={{ opacity: fadeAnim }} showsVerticalScrollIndicator={false}>
@@ -126,11 +135,11 @@ export default function ProfileScreen() {
               <Image source={{ uri: user.avatar }} style={styles.avatar} />
               <View style={styles.statsContainer}>
                 <View style={styles.statItem}>
-                  <Text style={styles.statNumber}>{posts.length}</Text>
+                  <Text style={styles.statNumber}>{userPosts.length}</Text>
                   <Text style={styles.statLabel}>Posts</Text>
                 </View>
                 <View style={styles.statItem}>
-                  <Text style={styles.statNumber}>{projects.length}</Text>
+                  <Text style={styles.statNumber}>{userProjects.length}</Text>
                   <Text style={styles.statLabel}>Projects</Text>
                 </View>
                 <View style={styles.statItem}>
@@ -161,8 +170,8 @@ export default function ProfileScreen() {
         {/* Tabs */}
         <View style={styles.tabsContainer}>
           {/* <Animated.View style={[styles.tabIndicator, { transform: [{ translateX }] }]} /> */}
-          {['posts', 'projects', 'events'].map(tab => {
-            const icons = { posts: Grid, projects: Folder, events: Calendar };
+          {['posts', 'projects', 'events', 'saved'].map(tab => {
+            const icons = { posts: Grid, projects: Folder, events: Calendar, saved: Bookmark };
             const Icon = icons[tab as keyof typeof icons];
             return (
               <TouchableOpacity
@@ -183,9 +192,9 @@ export default function ProfileScreen() {
         {/* Posts Grid */}
         {activeTab === 'posts' && (
           <View style={styles.gridContainer}>
-            {posts.length > 0 ? (
+            {userPosts.length > 0 ? (
               <View style={[styles.grid, { justifyContent: 'flex-start' }]}>
-                {posts.map(post => (
+                {userPosts.map(post => (
                   <TouchableOpacity
                     key={post.id}
                     onPress={() => router.push(`/post/${post.id}`)}
@@ -209,8 +218,8 @@ export default function ProfileScreen() {
         {/* Projects List */}
         {activeTab === 'projects' && (
           <View style={styles.projectsContainer}>
-            {projects.length ? (
-              projects.map(project => (
+            {userProjects.length ? (
+              userProjects.map(project => (
                 <TouchableOpacity
                   key={project.id}
                   style={styles.projectCard}
@@ -253,20 +262,15 @@ export default function ProfileScreen() {
         {activeTab === 'events' && (
           <View style={styles.gridContainer}>
             {userEvents.length ? (
-              <View style={[styles.grid, { justifyContent: 'flex-start' }]}>
+              <View style={[styles.grid, { justifyContent: 'flex-start',padding:GRID_GAP }]}>
                 {userEvents.map(event => (
                   <TouchableOpacity
                     key={event.id}
                     onPress={() => router.push(`/event/${event.id}`)}
+                    activeOpacity={0.9}
                     style={[styles.gridItem, { width: GRID_ITEM_SIZE, height: GRID_ITEM_SIZE }]}
                   >
                     <Image source={{ uri: event.image }} style={styles.gridImage} />
-                    <View style={styles.eventOverlay}>
-                      <Text style={styles.eventTitle}>{event.title}</Text>
-                      <Text style={styles.eventDate}>
-                        {new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </Text>
-                    </View>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -275,6 +279,32 @@ export default function ProfileScreen() {
                 icon={<Calendar size={64} color={Colors.border} />}
                 title="No Events"
                 desc="Events you join will appear here"
+              />
+            )}
+          </View>
+        )}
+
+        {/* Saved Posts Grid */}
+        {activeTab === 'saved' && (
+          <View style={styles.gridContainer}>
+            {savedPostsData.length > 0 ? (
+              <View style={[styles.grid, { justifyContent: 'flex-start' }]}>
+                {savedPostsData.map(post => (
+                  <TouchableOpacity
+                    key={post.id}
+                    onPress={() => router.push(`/post/${post.id}`)}
+                    activeOpacity={0.9}
+                    style={[styles.gridItem, { width: GRID_ITEM_SIZE, height: GRID_ITEM_SIZE }]}
+                  >
+                    <Image source={{ uri: post.images[0] }} style={styles.gridImage} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : (
+              <EmptyState
+                icon={<Bookmark size={64} color={Colors.border} />}
+                title="No Saved Posts"
+                desc="Posts you save will appear here"
               />
             )}
           </View>
@@ -293,18 +323,19 @@ export default function ProfileScreen() {
             </View>
             <ScrollView>
               <MenuItem icon={<Share2 size={22} color={Colors.text} />} label="Share Profile" onPress={handleShare} />
-              <MenuItem icon={<Link size={22} color={Colors.text} />} label="Copy Link" />
-              <MenuItem icon={<QrCode size={22} color={Colors.text} />} label="Show QR Code" />
-              <MenuItem icon={<Archive size={22} color={Colors.text} />} label="Archive" />
-              <MenuItem icon={<Clock size={22} color={Colors.text} />} label="Your Activity" />
+              <MenuItem icon={<Link size={22} color={Colors.text} />} label="Copy Link" onPress={() => console.log('Copy Link')} />
+              <MenuItem icon={<QrCode size={22} color={Colors.text} />} label="Show QR Code" onPress={() => console.log('Show QR Code')} />
+              <MenuItem icon={<Archive size={22} color={Colors.text} />} label="Archive" onPress={() => console.log('Archive')} />
+              <MenuItem icon={<Clock size={22} color={Colors.text} />} label="Your Activity" onPress={() => console.log('Your Activity')} />
               <MenuItem icon={<Settings size={22} color={Colors.text} />} label="Settings" onPress={() => router.push('/settings')} />
-              <MenuItem icon={<HelpCircle size={22} color={Colors.text} />} label="Help & Support" />
+              <MenuItem icon={<HelpCircle size={22} color={Colors.text} />} label="Help & Support" onPress={() => console.log('Help & Support')} />
               <MenuItem icon={<LogOut size={22} color={Colors.accent} />} label="Logout" danger onPress={handleLogout} />
             </ScrollView>
           </Animated.View>
         </TouchableOpacity>
       </Modal>
     </View>
+    </>
   );
 }
 
@@ -327,12 +358,32 @@ const EmptyState = ({ icon, title, desc }: any) => (
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.white },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: Colors.white, paddingHorizontal: 16, paddingBottom: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
   },
-  headerButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 16, fontWeight: '600', color: Colors.text },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Colors.white,
+  },
 
   profileWrapper: {
     width: '100%',
@@ -378,7 +429,7 @@ const styles = StyleSheet.create({
 
   
 actionButtons: {
-  flexDirection: SCREEN_WIDTH >= 600 ? 'row' : 'column',
+  flexDirection: SCREEN_WIDTH >= 200 ? 'row' : 'column',
   gap: 10,
   marginTop: 12,
   justifyContent: 'center',
@@ -410,7 +461,7 @@ shareButtonText: {
   fontWeight: '600',
 },
 
-  tabsContainer: { flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border,marginVertical: 16, position: 'relative',width: SCREEN_WIDTH >= 900 ? '60%' : '100%',justifyContent:"center",alignSelf:"center" },
+  tabsContainer: { flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border,marginVertical: 16, position: 'relative',width: SCREEN_WIDTH >= 900 ? '60%' : '100%',justifyContent:"center",alignSelf:"center", paddingHorizontal: 20 },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 10 },
   // tabIndicator: { position: 'absolute', top: 0, height: 2, backgroundColor: Colors.primary, width: SCREEN_WIDTH/3 },
 
@@ -435,9 +486,7 @@ shareButtonText: {
   projectStats: { flexDirection: 'row', alignItems: 'center' },
   projectStatText: { marginLeft: 4, color: Colors.textSecondary, fontSize: 13 },
 
-  eventOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.6)', padding: 6 },
-  eventTitle: { fontSize: 10, color: Colors.white, fontWeight: '600' },
-  eventDate: { fontSize: 10, color: Colors.white },
+
 
   emptyState: { alignItems: 'center', paddingVertical: 80 },
   emptyTitle: { fontSize: 20, fontWeight: '700', marginVertical: 6, color: Colors.text },

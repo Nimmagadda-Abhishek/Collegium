@@ -15,6 +15,8 @@ import {
   Platform,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
+import { ArrowLeft } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, Github, Linkedin, MapPin, BookOpen, GraduationCap } from 'lucide-react-native';
 import Colors from '@/constants/colors';
@@ -22,6 +24,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function EditProfileScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user, updateUser } = useAuth();
 
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
@@ -117,16 +120,20 @@ export default function EditProfileScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Stack.Screen
-        options={{
-          title: 'Edit Profile',
-          headerRight: () => (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+          <View style={styles.headerContent}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+              <ArrowLeft size={24} color={Colors.white} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Edit Profile</Text>
             <TouchableOpacity onPress={handleSave} activeOpacity={0.7}>
               <Text style={styles.saveButton}>Save</Text>
             </TouchableOpacity>
-          ),
-        }}
-      />
+          </View>
+        </View>
+      </>
 
       <Animated.ScrollView
         style={[styles.content, { opacity: fadeAnim }]}
@@ -262,7 +269,38 @@ export default function EditProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  saveButton: { fontSize: 16, fontWeight: '600', color: Colors.primary, marginRight: 16 },
+  header: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: Colors.white,
+  },
+  saveButton: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.white,
+  },
   content: { flex: 1 },
   avatarSection: {
     alignItems: 'center',

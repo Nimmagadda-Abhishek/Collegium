@@ -17,6 +17,13 @@ const Colors = {
   white: '#FFFFFF',
   black: '#000000',
   overlay: 'rgba(0, 0, 0, 0.5)',
+  // Dark mode colors
+  darkBackground: '#121212',
+  darkBackgroundSecondary: '#1e1e1e',
+  darkSurface: '#1e1e1e',
+  darkText: '#FFFFFF',
+  darkTextSecondary: '#B3B3B3',
+  darkBorder: '#333333',
 };
 
 export default Colors;

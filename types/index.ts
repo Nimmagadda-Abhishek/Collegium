@@ -11,13 +11,14 @@ export interface User {
   linkedinUsername?: string;
   followers: number;
   following: number;
+  blockedUsers?: string[];
+  savedPosts?: string[];
 }
 
 export interface Post {
   id: string;
   userId: string;
-  user: User[];
-  
+  user: User; 
   content: string;
   images: string[];
   likes: number;
@@ -25,7 +26,11 @@ export interface Post {
   shares: number;
   isLiked: boolean;
   createdAt: string;
-  commentsList: Comment[];
+  commentsList: CommentItem[]; 
+}
+export interface CommentItem {
+  user: string;
+  text: string;
 }
 
 export interface Story {
@@ -36,6 +41,7 @@ export interface Story {
   createdAt: string;
   viewed: boolean;
 }
+
 
 export interface Event {
   id: string;
@@ -74,16 +80,23 @@ export interface Chat {
   isGroup: boolean;
   groupName?: string;
   groupAvatar?: string;
+  messages?: Message[];
+  requestStatus?: 'pending' | 'accepted' | 'blocked';
 }
 
 export interface Message {
   id: string;
-  chatId: string;
+  chatId?: string;
   senderId: string;
-  sender: User;
+  sender?: User;
   content: string;
-  type: 'text' | 'image' | 'file';
-  createdAt: string;
+  type?: 'text' | 'image' | 'file';
+  imageUri?: string;
+  fileName?: string;
+  fileSize?: number;
+  createdAt?: string;
+  timestamp?: string;
+  isOwn?: boolean;
 }
 
 export interface Comment {
@@ -93,4 +106,12 @@ export interface Comment {
   content: string;
   createdAt: string;
   likes: number;
+}
+
+export interface MessageRequest {
+  id: string;
+  fromUser: User;
+  message: string;
+  timestamp: string;
+  chatId: string;
 }

@@ -10,6 +10,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Heart, Users, Github, Plus } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import Colors from '@/constants/colors';
 import { projects } from '@/mocks/data';
 import { Project } from '@/types';
@@ -145,10 +146,11 @@ export default function ProjectsScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: insets.top }}>
-        <View style={styles.content}>
-          <View style={styles.header}>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.container}>
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+          <View style={styles.headerContent}>
             <Text style={styles.headerTitle}>Explore Projects</Text>
             <TouchableOpacity
               style={styles.createButton}
@@ -157,11 +159,14 @@ export default function ProjectsScreen() {
               <Plus size={20} color={Colors.white} />
             </TouchableOpacity>
           </View>
-          
-          {projects.map(renderProject)}
         </View>
-      </ScrollView>
-    </View>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.content}>
+            {projects.map(renderProject)}
+          </View>
+        </ScrollView>
+      </View>
+    </>
   );
 }
 
@@ -174,15 +179,25 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   header: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: '700' as const,
-    color: Colors.text,
+    fontWeight: '700',
+    color: Colors.white,
   },
   createButton: {
     width: 40,

@@ -5,27 +5,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import Colors from '@/constants/colors';
+import { Stack } from 'expo-router';
 
 export default function ResourcesScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
   return (
+    <>
+    <Stack.Screen options={{ headerShown: false }} />
+    <View style={[styles.header, { paddingTop: insets.top + 16, backgroundColor: Colors.primary }]}>
+      <View style={styles.headerContent}>
+        <Text style={styles.headerTitle}>Resources</Text>
+      </View>
+    </View>
     <View style={styles.container}>
-      {/* Header */}
-      <LinearGradient
-        colors={[Colors.primary, Colors.accent]}
-        style={[styles.header, { paddingTop: insets.top + 16 }]}
-      >
-        <View style={styles.headerContent}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <ArrowLeft size={22} color={Colors.white} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Resources</Text>
-          <View style={{ width: 40 }} /> 
-        </View>
-      </LinearGradient>
-
       {/* Content */}
       <View style={styles.content}>
         <View style={styles.messageContainer}>
@@ -36,6 +30,7 @@ export default function ResourcesScreen() {
         </View>
       </View>
     </View>
+    </>
   );
 }
 
@@ -47,8 +42,13 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
     paddingBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
+    backgroundColor: Colors.primary,
   },
   headerContent: {
     flexDirection: 'row',
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '700',
     color: Colors.white,
   },

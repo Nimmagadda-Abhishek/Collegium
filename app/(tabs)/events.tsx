@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Stack } from 'expo-router';
 import { Calendar, MapPin, Users, Clock } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { events } from '@/mocks/data';
@@ -109,13 +110,21 @@ export default function EventsScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: insets.top }}>
-        <View style={styles.content}>
-          {events.map(renderEvent)}
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.container}>
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Events</Text>
+          </View>
         </View>
-      </ScrollView>
-    </View>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.content}>
+            {events.map(renderEvent)}
+          </View>
+        </ScrollView>
+      </View>
+    </>
   );
 }
 
@@ -221,5 +230,26 @@ const styles = StyleSheet.create({
   },
   rsvpButtonTextActive: {
     color: Colors.primary,
+  },
+  // --- HEADER STYLES ---
+  header: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Colors.white,
   },
 });

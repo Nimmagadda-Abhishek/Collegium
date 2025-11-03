@@ -28,9 +28,11 @@ import {
   Users,
   Filter,
   Hash,
+  ArrowLeft,
 } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const friends = [
   { id: 1, name: 'Abhishek' },
@@ -42,6 +44,7 @@ const friends = [
 export default function CreatePostScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const [caption, setCaption] = useState('');
   const [tags, setTags] = useState('');
@@ -92,7 +95,7 @@ export default function CreatePostScreen() {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsMultipleSelection: true,
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
       quality: 0.8,
     });
 
@@ -105,9 +108,7 @@ export default function CreatePostScreen() {
   const handleRemoveImage = (index: number) =>
     setImages(images.filter((_, i) => i !== index));
 
-  const applyFilter = () => {
-    Alert.alert('Filters', 'Simple filter applied to all images ✨');
-  };
+
 
   const toggleCollab = (id: number) => {
     setCollabs((prev) =>
@@ -117,12 +118,28 @@ export default function CreatePostScreen() {
 
   const handlePost = () => {
     if (!caption.trim() && images.length === 0) {
-      Alert.alert('Error', 'Add a caption or image before posting');
+      Alert.alert('Error', 'Add a caption or media before posting');
       return;
     }
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
+      // Create a new post object using mock data structure
+      const newPost = {
+        id: (Date.now()).toString(),
+        userId: user?.id || '1',
+        user: user || { id: '1', name: 'Unknown', email: '', avatar: '', bio: '', university: '', major: '', year: '', followers: 0, following: 0 },
+        content: caption,
+        images: images,
+        likes: 0,
+        comments: 0,
+        shares: 0,
+        isLiked: false,
+        createdAt: new Date().toISOString(),
+        commentsList: [],
+      };
+      // Here you would typically save to a backend or state management
+      console.log('New Post:', newPost);
       Alert.alert(
         'Posted!',
         `Post shared ${isPublic ? 'publicly' : 'privately'} with ${
@@ -143,10 +160,14 @@ export default function CreatePostScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Stack.Screen
-        options={{
-          title: 'New Post',
-          headerRight: () => (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+          <View style={styles.headerContent}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+              <ArrowLeft size={24} color={Colors.white} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>New Post</Text>
             <TouchableOpacity
               onPress={handlePost}
               disabled={loading || (!caption.trim() && images.length === 0)}
@@ -161,9 +182,9 @@ export default function CreatePostScreen() {
                 {loading ? 'Posting...' : 'Post'}
               </Text>
             </TouchableOpacity>
-          ),
-        }}
-      />
+          </View>
+        </View>
+      </>
 
       <Animated.ScrollView
         showsVerticalScrollIndicator={false}
@@ -222,19 +243,8 @@ export default function CreatePostScreen() {
             activeOpacity={0.7}
           >
             <ImagePlus size={22} color={Colors.primary} />
-            <Text style={styles.addImageText}>Add Photo</Text>
+            <Text style={styles.addImageText}>Add Media</Text>
           </TouchableOpacity>
-
-          {images.length > 0 && (
-            <TouchableOpacity
-              style={styles.filterButton}
-              onPress={applyFilter}
-              activeOpacity={0.7}
-            >
-              <Filter size={20} color={Colors.primary} />
-              <Text style={styles.addImageText}>Apply Filter</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
         {/* Tags */}
@@ -319,14 +329,7 @@ export default function CreatePostScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Story Switch */}
-        <View style={styles.optionRow}>
-          <Text style={styles.optionLabel}>Share to Story</Text>
-          <Switch
-            trackColor={{ false: '#767577', true: Colors.primary }}
-            thumbColor={Colors.white}
-          />
-        </View>
+
 
         {/* Cancel Post Button */}
         <TouchableOpacity
@@ -346,31 +349,88 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 40,
   },
-  postButton: {
+  header: {
+    // Gradient background for header (use a fallback color here, add gradient with libraries if needed)
     backgroundColor: Colors.primary,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Colors.white,
+    letterSpacing: 0.3,
+  },
+  postButton: {
+    backgroundColor: Colors.accent || '#4A90E2',
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 20,
-    marginRight: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  postButtonText: { fontSize: 15, fontWeight: '600', color: Colors.white },
+  postButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.white,
+    letterSpacing: 0.1,
+  },
   userSection: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    margin: 16,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   avatar: { width: 48, height: 48, borderRadius: 24, marginRight: 12 },
   userInfo: { flex: 1 },
-  userName: { fontSize: 16, fontWeight: '600', color: Colors.text },
-  userEmail: { fontSize: 13, color: Colors.textSecondary },
+  userName: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: Colors.text,
+    marginBottom: 2,
+  },
+  userEmail: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: '400',
+  },
   captionInput: {
     fontSize: 16,
     color: Colors.text,
     padding: 16,
     minHeight: 100,
     textAlignVertical: 'top',
+    backgroundColor: '#f9f9f9',
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
   },
   imagesList: {
     paddingHorizontal: 10,
@@ -402,33 +462,64 @@ const styles = StyleSheet.create({
   addImageButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 2,
+    justifyContent: 'center',
+    borderWidth: 1.5,
     borderStyle: 'dashed',
     borderColor: Colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: '#f8fcff',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
   },
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderWidth: 2,
+    justifyContent: 'center',
+    borderWidth: 1.5,
     borderColor: Colors.primary,
-    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: '#f8fcff',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
   },
-  addImageText: { color: Colors.primary, fontWeight: '600', marginLeft: 6 },
+  addImageText: {
+    color: Colors.primary,
+    fontWeight: '700',
+    marginLeft: 8,
+    fontSize: 16,
+    letterSpacing: 0.1,
+  },
   optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
     justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginVertical: 6,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  optionLabel: { fontSize: 15, color: Colors.text, flex: 1, marginLeft: 10 },
+  optionLabel: {
+    fontSize: 15,
+    color: Colors.text,
+    flex: 1,
+    marginLeft: 10,
+    fontWeight: '600',
+    letterSpacing: 0.1,
+  },
   optionInput: {
     flex: 1,
     marginLeft: 10,
@@ -455,17 +546,27 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 40,
     alignSelf: 'center',
-    backgroundColor: Colors.backgroundSecondary,
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 20,
+    backgroundColor: '#f1f1f1',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    elevation: 3,
   },
   cancelPostText: {
-    color: Colors.textSecondary,
-    fontSize: 15,
+    color: Colors.text,
+    fontSize: 16,
     fontWeight: '600',
   },
-  collabName: { color: Colors.text },
+  collabName: {
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.1,
+  },
   visibilityToggle: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   visibilityText: { fontSize: 14, color: Colors.primary, fontWeight: '500' },
+
 });

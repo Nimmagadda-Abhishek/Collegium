@@ -5,13 +5,15 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TrendingUp, Users, Calendar, Settings, FolderGit2, MessageSquare ,Heart} from 'lucide-react-native';
+import { TrendingUp, Users, Calendar, Settings, FolderGit2, MessageSquare ,Heart, Images, Calendar as CalendarIcon, Plus} from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import Colors from '@/constants/colors';
-import { projects, events } from '@/mocks/data';
+import { projects, events ,posts} from '@/mocks/data';
+import PostsScreen from '@/app/posts';
 
 
 
@@ -20,11 +22,27 @@ export default function HomeScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'discover' | 'trending' | 'posts'>('discover');
 
+  // Helper to convert 12-hour time to 24-hour format
+  const convertTo24Hour = (time12h: string) => {
+    const [time, modifier] = time12h.split(' ');
+    let [hours, minutes] = time.split(':');
+    if (hours === '12') hours = '00';
+    if (modifier === 'PM') hours = String(parseInt(hours, 10) + 12);
+    return `${hours.padStart(2, '0')}:${minutes}`;
+  };
+
+  const upcomingEventsCount = events.filter(event => {
+    const eventDateTime = new Date(`${event.date}T${convertTo24Hour(event.time)}`);
+    return eventDateTime >= new Date();
+  }).length;
+
   const stats = [
     { label: 'Active Projects', value: '127', icon: FolderGit2, color: Colors.primary },
     { label: 'Students', value: '2.4K', icon: Users, color: Colors.accent },
-    { label: 'Events', value: '18', icon: Calendar, color: '#10B981' },
+    { label: 'Upcoming Events', value: upcomingEventsCount.toString(), icon: CalendarIcon, color: '#10B981' },
   ];
+
+  
 
   return (
     <View style={styles.container}>
@@ -37,29 +55,53 @@ export default function HomeScreen() {
             <Text style={styles.greeting}>Welcome back!</Text>
             <Text style={styles.appName}>Collegium</Text>
           </View>
-          <TouchableOpacity style={styles.notificationButton} onPress={() => router.push('/chats')}>
-            <MessageSquare size={24} color={Colors.white} />
-          </TouchableOpacity>
+          <View style={styles.notificationButtons}>
+            <TouchableOpacity
+              style={styles.notificationButton}
+              onPress={() => router.push('/create-post')}
+            >
+              <Plus size={20} color={Colors.white} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.notificationButton}
+              onPress={() => router.push('/notifications')}
+            >
+              <Heart size={20} color={Colors.white} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.notificationButton}
+              onPress={() => router.push('/chats')}
+            >
+              <MessageSquare size={20} color={Colors.white} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.statsContainer}>
           {stats.map((stat, index) => (
-            <View key={index} style={styles.statCard}>
+            <TouchableOpacity
+              key={index}
+              style={styles.statCard}
+              onPress={
+                stat.label === 'Active Projects'
+                  ? () => router.push('/active-projects')
+                  : stat.label === 'Students'
+                  ? () => router.push('/students')
+                  : stat.label === 'Upcoming Events'
+                  ? () => router.push('/upcoming-events')
+                  : undefined
+              }
+            >
               <View style={[styles.statIconContainer, { backgroundColor: stat.color + '20' }]}>
                 <stat.icon size={20} color={stat.color} />
               </View>
               <Text style={styles.statValue}>{stat.value}</Text>
               <Text style={styles.statLabel}>{stat.label}</Text>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       </LinearGradient>
-
-      <ScrollView
-        style={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.tabContainer}>
+      <View style={styles.tabContainer}>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'discover' && styles.activeTab]}
             onPress={() => setActiveTab('discover')}
@@ -79,92 +121,174 @@ export default function HomeScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'posts' && styles.activeTab]}
-            onPress={() => router.push('/posts')}
+            // onPress={() => router.push('/posts')}
+            onPress={() => setActiveTab('posts')}
           >
-            <MessageSquare size={16} color={activeTab === 'posts' ? Colors.primary : Colors.textSecondary} />
+            <Images size={16} color={activeTab === 'posts' ? Colors.primary : Colors.textSecondary} />
             <Text style={[styles.tabText, activeTab === 'posts' && styles.activeTabText]}>
               Posts
             </Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Featured Projects</Text>
-            <TouchableOpacity onPress={() => router.push('/projects')}>
-              <Text style={styles.seeAll}>See All</Text>
-            </TouchableOpacity>
-          </View>
-
-          {projects.slice(0, 3).map((project) => (
-            <TouchableOpacity key={project.id} style={styles.projectCard} onPress={() => router.push(`/project/${project.id}`)} >
-              <View style={styles.projectHeader}>
-                <View style={styles.projectIconContainer}>
-                  <FolderGit2 size={24} color={Colors.primary} />
-                </View>
-                <View style={styles.projectInfo}>
-                  <Text style={styles.projectTitle}>{project.title}</Text>
-                  <Text style={styles.projectOwner}>by {project.owner.name}</Text>
-                </View>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {activeTab === 'discover' && (
+          <>
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Recent Projects</Text>
               </View>
-              <Text style={styles.projectDescription} numberOfLines={2}>
-                {project.description}
-              </Text>
-              <View style={styles.projectFooter}>
-                <View style={styles.projectTags}>
-                  {project.tags.slice(0, 2).map((tag, index) => (
-                    <View key={index} style={styles.tag}>
-                      <Text style={styles.tagText}>{tag}</Text>
+              {projects
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                .slice(0, 3)
+                .map((project) => (
+                  <TouchableOpacity key={project.id} style={styles.projectCard} onPress={() => router.push(`/project/${project.id}`)}>
+                    <View style={styles.projectHeader}>
+                      <View style={styles.projectIconContainer}>
+                        <FolderGit2 size={24} color={Colors.primary} />
+                      </View>
+                      <View style={styles.projectInfo}>
+                        <Text style={styles.projectTitle}>{project.title}</Text>
+                        <Text style={styles.projectOwner}>by {project.owner.name}</Text>
+                      </View>
                     </View>
-                  ))}
-                </View>
-                <View style={styles.projectStats}>
-                  <Users size={14} color={Colors.textSecondary} />
-                  <Text style={styles.projectStatText}>{project.members.length}</Text>
-                  <Heart size={14} color={Colors.textSecondary} style={{ marginLeft: 12 }} />
-                  <Text style={styles.projectStatText}>{project.likes}</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Upcoming Events</Text>
-            <TouchableOpacity onPress={() => router.push('/events')}>
-              <Text style={styles.seeAll}>See All</Text>
-            </TouchableOpacity>
-          </View>
-
-          {events.slice(0, 2).map((event) => (
-            <TouchableOpacity key={event.id} style={styles.eventCard} onPress={() => router.push(`/event/${event.id}`)} >
-              <View style={styles.eventDate}>
-                <Text style={styles.eventMonth}>
-                  {new Date(event.date).toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}
-                </Text>
-                <Text style={styles.eventDay}>
-                  {new Date(event.date).getDate()}
-                </Text>
-              </View>
-              <View style={styles.eventInfo}>
-                <Text style={styles.eventTitle}>{event.title}</Text>
-                <Text style={styles.eventLocation}>{event.location}</Text>
-                <View style={styles.eventFooter}>
-                  <View style={styles.eventAttendees}>
-                    <Users size={14} color={Colors.textSecondary} />
-                    <Text style={styles.eventAttendeesText}>{event.attendees} attending</Text>
-                  </View>
-                  <View style={[styles.eventBadge, { backgroundColor: event.isAttending ? Colors.primary + '20' : Colors.border }]}>
-                    <Text style={[styles.eventBadgeText, { color: event.isAttending ? Colors.primary : Colors.textSecondary }]}>
-                      {event.isAttending ? 'Going' : 'RSVP'}
+                    <Text style={styles.projectDescription} numberOfLines={2}>
+                      {project.description}
                     </Text>
+                  </TouchableOpacity>
+                ))}
+            </View>
+
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Upcoming Events</Text>
+              </View>
+              {events
+                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                .slice(0, 2)
+                .map((event) => (
+                  <TouchableOpacity key={event.id} style={styles.eventCard} onPress={() => router.push(`/event/${event.id}`)}>
+                    <View style={styles.eventDate}>
+                      <Text style={styles.eventMonth}>
+                        {new Date(event.date).toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}
+                      </Text>
+                      <Text style={styles.eventDay}>{new Date(event.date).getDate()}</Text>
+                    </View>
+                    <View style={styles.eventInfo}>
+                      <Text style={styles.eventTitle}>{event.title}</Text>
+                      <Text style={styles.eventLocation}>{event.location}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+            </View>
+          </>
+        )}
+
+        {activeTab === 'trending' && (
+          <>
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Trending Projects</Text>
+              </View>
+              {projects
+                .sort((a, b) => b.members.length - a.members.length)
+                .slice(0, 3)
+                .map((project) => (
+                  <TouchableOpacity key={project.id} style={styles.projectCard} onPress={() => router.push(`/project/${project.id}`)}>
+                    <View style={styles.projectHeader}>
+                      <View style={styles.projectIconContainer}>
+                        <FolderGit2 size={24} color={Colors.primary} />
+                      </View>
+                      <View style={styles.projectInfo}>
+                        <Text style={styles.projectTitle}>{project.title}</Text>
+                        <Text style={styles.projectOwner}>by {project.owner.name}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.projectDescription} numberOfLines={2}>
+                      {project.description}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+            </View>
+
+            <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Popular Events</Text>
+              </View>
+              {events
+                .sort((a, b) => b.attendees - a.attendees)
+                .slice(0, 2)
+                .map((event) => (
+                  <TouchableOpacity key={event.id} style={styles.eventCard} onPress={() => router.push(`/event/${event.id}`)}>
+                    <View style={styles.eventDate}>
+                      <Text style={styles.eventMonth}>
+                        {new Date(event.date).toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}
+                      </Text>
+                      <Text style={styles.eventDay}>{new Date(event.date).getDate()}</Text>
+                    </View>
+                    <View style={styles.eventInfo}>
+                      <Text style={styles.eventTitle}>{event.title}</Text>
+                      <Text style={styles.eventLocation}>{event.location}</Text>
+                      <Text style={styles.eventAttendeesText}>{event.attendees} attending</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+            </View>
+
+            <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Top Posts</Text>
+              </View>
+              {posts
+                .sort((a, b) => b.likes - a.likes)
+                .slice(0, 3)
+                .map((post) => (
+                  <TouchableOpacity key={post.id} style={styles.projectCard} onPress={() => router.push(`/post/${post.id}`)}>
+                    <Text style={styles.projectTitle}>{post.user.name}</Text>
+                    <Text numberOfLines={2} style={styles.projectDescription}>
+                      {post.content}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+            </View>
+          </>
+        )}
+
+        {activeTab === 'posts' && (
+          <>
+            {/* {posts.map((post) => (
+              <View key={post.id} style={[styles.projectCard, { marginBottom: 16 }]}>
+                <View style={styles.projectHeader}>
+                  <View style={styles.projectInfo}>
+                    <Text style={styles.projectTitle}>{post.user.name}</Text>
+                    <Text style={styles.projectOwner}>{new Date(post.createdAt).toLocaleDateString()}</Text>
                   </View>
                 </View>
+
+                <Text style={styles.projectDescription}>{post.content}</Text>
+
+                {post.images.length > 0 && (
+                  <Image
+                    source={{ uri: post.images[0] }}
+                    style={{ width: '100%', height: 200, borderRadius: 12, marginVertical: 10 }}
+                    resizeMode="cover"
+                  />
+                )}
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                  <Heart size={20} color={Colors.textSecondary} style={{ marginRight: 6 }} />
+                  <Text style={styles.projectStatText}>{post.likes}</Text>
+                  <MessageSquare size={20} color={Colors.textSecondary} style={{ marginLeft: 12, marginRight: 6 }} />
+                  <Text style={styles.projectStatText}>{post.comments}</Text>
+                </View>
               </View>
-            </TouchableOpacity>
-          ))}
-        </View>
+            ))} */}
+            <PostsScreen/>
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -196,9 +320,13 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     color: Colors.white,
   },
+  notificationButtons:{
+    flexDirection:'row',
+    gap:10,
+  },
   notificationButton: {
-    width: 44,
-    height: 44,
+    width: 35,
+    height: 35,
     borderRadius: 22,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
@@ -241,6 +369,7 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
+    justifyContent: 'space-around',
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 16,
@@ -280,6 +409,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700' as const,
     color: Colors.text,
+    marginBottom: 8,
   },
   seeAll: {
     fontSize: 14,

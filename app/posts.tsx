@@ -13,9 +13,10 @@ import {
   Share,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { Heart, MessageCircle, Share2, Bookmark, Plus } from 'lucide-react-native';
+import { Heart, MessageCircle, Share2, Bookmark, Plus, MoreVertical } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
 import Colors from '@/constants/colors';
-import { posts } from '@/mocks/data';
+import { posts, currentUser } from '@/mocks/data';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -25,7 +26,30 @@ export default function PostsScreen() {
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
   const [currentImageIndex, setCurrentImageIndex] = useState<{ [key: string]: number }>({});
   const [commentsOpen, setCommentsOpen] = useState<{ [key: string]: boolean }>({});
+  const [savedPosts, setSavedPosts] = useState<string[]>(currentUser?.savedPosts || []);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const toggleMenu = (postId: string) => {
+    setMenuOpen(prev => (prev === postId ? null : postId));
+  };
+
+  const currentUserId = '1';
+
+  const handleCopyLink = (postId: string) => {
+    Clipboard.setString(`https://collegiumapp.com/post/${postId}`);
+    setMenuOpen(null);
+  };
+
+  const handleEdit = (postId: string) => {
+    console.log('Edit post:', postId);
+    setMenuOpen(null);
+  };
+
+  const handleDelete = (postId: string) => {
+    setPostsData(prev => prev.filter(post => post.id !== postId));
+    setMenuOpen(null);
+  };
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
@@ -70,6 +94,17 @@ export default function PostsScreen() {
     setCommentsOpen(prev => ({ ...prev, [postId]: !prev[postId] }));
   };
 
+  const handleSave = (postId: string) => {
+    setSavedPosts(prev => {
+      const isSaved = prev.includes(postId);
+      if (isSaved) {
+        return prev.filter(id => id !== postId);
+      } else {
+        return [...prev, postId];
+      }
+    });
+  };
+
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -105,11 +140,62 @@ export default function PostsScreen() {
         {postsData.map(post => (
           <Animated.View key={post.id} style={styles.postCard}>
             <View style={styles.postHeader}>
-              <Image source={{ uri: post.user.avatar }} style={styles.avatar} />
-              <View style={styles.userInfo}>
-                <Text style={styles.userName}>{post.user.name}</Text>
-                <Text style={styles.postTime}>{formatTime(post.createdAt)}</Text>
-              </View>
+              <TouchableOpacity onPress={() => router.push(`/user/${post.user.id}`)} style={styles.userTouchable}>
+                <Image source={{ uri: post.user.avatar }} style={styles.avatar} />
+                <View style={styles.userInfo}>
+                  <Text style={styles.userName}>{post.user.name}</Text>
+                  <Text style={styles.postTime}>{formatTime(post.createdAt)}</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => toggleMenu(post.id)}>
+                <MoreVertical size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+
+              {menuOpen === post.id && (
+                <>
+                  <TouchableOpacity
+                    activeOpacity={1}
+                    onPress={() => setMenuOpen(null)}
+                    style={styles.overlay}
+                  />
+                  <View style={styles.menuContainer}>
+                    {post.user.id === currentUserId ? (
+                      <>
+                        <TouchableOpacity style={styles.menuItem} onPress={() => handleEdit(post.id)}>
+                          <Text style={styles.menuText}>Edit</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.menuItem} onPress={() => handleDelete(post.id)}>
+                          <Text style={[styles.menuText, { color: Colors.error }]}>Delete</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.menuItem} onPress={() => handleCopyLink(post.id)}>
+                          <Text style={styles.menuText}>Copy Link</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.menuItem} onPress={() => handleShare(post)}>
+                          <Text style={styles.menuText}>Share</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.menuItem} onPress={() => setMenuOpen(null)}>
+                          <Text style={[styles.menuText, { color: Colors.textSecondary }]}>Cancel</Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <>
+                        <TouchableOpacity style={styles.menuItem} onPress={() => router.push(`/user/${post.user.id}`)}>
+                          <Text style={styles.menuText}>Open Account</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.menuItem} onPress={() => handleCopyLink(post.id)}>
+                          <Text style={styles.menuText}>Copy Link</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.menuItem} onPress={() => handleShare(post)}>
+                          <Text style={styles.menuText}>Share</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.menuItem} onPress={() => setMenuOpen(null)}>
+                          <Text style={[styles.menuText, { color: Colors.textSecondary }]}>Cancel</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                  </View>
+                </>
+              )}
             </View>
 
             <Text style={styles.postContent}>{post.content}</Text>
@@ -162,8 +248,8 @@ export default function PostsScreen() {
                 <Text style={styles.actionText}>{post.shares}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.actionButton, { marginLeft: 'auto' }]}>
-                <Bookmark size={22} color={Colors.textSecondary} />
+              <TouchableOpacity style={[styles.actionButton, { marginLeft: 'auto' }]} onPress={() => handleSave(post.id)}>
+                <Bookmark size={22} color={savedPosts.includes(post.id) ? Colors.primary : Colors.textSecondary} fill={savedPosts.includes(post.id) ? Colors.primary : 'transparent'} />
               </TouchableOpacity>
             </View>
 
@@ -205,7 +291,14 @@ const styles = StyleSheet.create({
       android: { elevation: 2 },
     }),
   },
-  postHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 },
+  postHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    position: 'relative',
+    zIndex: 5,
+  },
   avatar: { width: 44, height: 44, borderRadius: 22, marginRight: 12 },
   userInfo: { flex: 1 },
   userName: { fontSize: 15, fontWeight: '600', color: Colors.text, marginBottom: 2 },
@@ -225,4 +318,41 @@ const styles = StyleSheet.create({
   commentText: { color: Colors.textSecondary, marginLeft: 4 },
   noComments: { color: Colors.textSecondary, fontStyle: 'italic' },
   divider: { height: 1, backgroundColor: Colors.border, marginTop: 16, marginHorizontal: 16 },
+  menuContainer: {
+    position: 'absolute',
+    top: 40,
+    right: 16,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 20,
+  },
+  menuItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  menuText: {
+    fontSize: 14,
+    color: Colors.text,
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+    zIndex: 9,
+  },
+  userTouchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
 });

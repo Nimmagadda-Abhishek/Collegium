@@ -10,8 +10,9 @@ import {
   Platform,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { X, Plus, Github } from 'lucide-react-native';
+import { X, Plus, Github, ArrowLeft } from 'lucide-react-native';
 import Colors from '@/constants/colors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function CreateProjectScreen() {
   const router = useRouter();
@@ -20,6 +21,7 @@ export default function CreateProjectScreen() {
   const [githubRepo, setGithubRepo] = useState<string>('');
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState<string>('');
+  const insets = useSafeAreaInsets();
 
   const addTag = () => {
     if (tagInput.trim() && tags.length < 5) {
@@ -47,20 +49,17 @@ export default function CreateProjectScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <Stack.Screen
-        options={{
-          title: 'Create Project',
-          headerStyle: {
-            backgroundColor: Colors.white,
-          },
-          headerTitleStyle: {
-            fontSize: 18,
-            fontWeight: '700' as const,
-            color: Colors.text,
-          },
-          headerTintColor: Colors.text,
-        }}
-      />
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+          <View style={styles.headerContent}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+              <ArrowLeft size={24} color={Colors.white} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Create Project</Text>
+          </View>
+        </View>
+      </>
 
       <ScrollView
         style={styles.content}
@@ -310,6 +309,34 @@ const styles = StyleSheet.create({
   createButtonText: {
     fontSize: 16,
     fontWeight: '600' as const,
+    color: Colors.white,
+  },
+  header: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 12,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
     color: Colors.white,
   },
 });

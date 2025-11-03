@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -19,7 +20,7 @@ function RootLayoutNav() {
       <Stack.Screen name="project/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="event/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="post/[id]" options={{headerShown:false}}/>
-      {/* <Stack.Screen name="settings" options={{ headerShown: false }} /> */}
+      <Stack.Screen name="notifications" options={{ headerShown: false }} />
     </Stack>
   );
 }
@@ -32,9 +33,11 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <RootLayoutNav />
-        </GestureHandlerRootView>
+        <ThemeProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <RootLayoutNav />
+          </GestureHandlerRootView>
+        </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
